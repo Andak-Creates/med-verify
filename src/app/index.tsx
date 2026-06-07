@@ -1,17 +1,12 @@
-import { Text, View, StyleSheet } from "react-native";
+import { Redirect } from 'expo-router';
+
+// Mock auth state — swap `IS_LOGGED_IN` to `true` to simulate a returning user
+// bypassing onboarding and going straight to the dashboard.
+const IS_LOGGED_IN = false;
 
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>Edit src/app/index.tsx to edit this screen.</Text>
-    </View>
-  );
+  if (IS_LOGGED_IN) {
+    return <Redirect href={'/(user)/home' as any} />;
+  }
+  return <Redirect href={'/(onboarding)/splash' as any} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
