@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -8,12 +9,56 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
+import { getScanHistory, type ScanHistoryItem } from '../../../lib/drugs';
+
+const RECENT_STATUS_DISPLAY: Record<ScanHistoryItem['status'], { label: string; bg: string; color: string }> = {
+  verified: { label: 'AUTHENTIC', bg: '#EBF5EB', color: '#2E7D32' },
+  flagged: { label: 'FLAGGED', bg: '#FFF7ED', color: '#C2410C' },
+  not_found: { label: 'NOT FOUND', bg: '#FEF2F2', color: '#B91C1C' },
+};
+
+function formatRelativeTime(isoDate: string): string {
+  const date = new Date(isoDate);
+  const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [recentScans, setRecentScans] = useState<ScanHistoryItem[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoadingRecent(true);
+      getScanHistory({ limit: 2 })
+        .then(({ items }) => {
+          if (!cancelled) setRecentScans(items);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setLoadingRecent(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  const greetingName = user?.fullName?.split(' ')[0] || user?.username || 'there';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -34,8 +79,12 @@ export default function HomeScreen() {
             </Pressable>
 
             {/* Avatar */}
-            <Pressable style={styles.avatarButton}>
-              <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+            <Pressable style={styles.avatarButton} onPress={() => router.push('/(user)/account' as any)}>
+              {user?.profileImage ? (
+                <Image source={{ uri: user.profileImage }} style={{ width: '100%', height: '100%', borderRadius: 19 }} />
+              ) : (
+                <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+              )}
             </Pressable>
           </View>
         </View>
@@ -43,7 +92,7 @@ export default function HomeScreen() {
         {/* ── Greeting ───────────────────────────────────────── */}
         <View style={styles.greetingRow}>
           <View>
-            <Text style={styles.greetingName}>Hello, Sarah</Text>
+            <Text style={styles.greetingName}>Hello, {greetingName}</Text>
             <Text style={styles.greetingTag}>PEOPLE-FIRST PRECISION</Text>
           </View>
 
@@ -119,56 +168,59 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Item 1 */}
-          <Pressable
-            onPress={() => router.push({ pathname: '/(user)/home/result', params: { code: 'default' } } as any)}
-            style={({ pressed }) => [styles.scanItem, pressed && { opacity: 0.85 }]}
-          >
-            <View style={styles.scanIcon}>
-              {/* Blister pack representation */}
-              <View style={styles.blisterGrid}>
-                {[...Array(6)].map((_, i) => (
-                  <View key={i} style={styles.blisterPill} />
-                ))}
-              </View>
+          {loadingRecent ? (
+            <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#0B1C5A" />
             </View>
+          ) : recentScans.length === 0 ? (
+            <View style={[styles.scanItem, { justifyContent: 'center' }]}>
+              <Text style={{ color: '#6B7280', fontSize: 13 }}>No scans yet — verify a drug to get started.</Text>
+            </View>
+          ) : (
+            recentScans.map((item, index) => {
+              const display = RECENT_STATUS_DISPLAY[item.status];
+              const result = JSON.stringify({
+                nafdacNumber: item.nafdacNumber,
+                found: item.status !== 'not_found',
+                verificationResult: item.status,
+                productName: item.drugName,
+                manufacturer: item.manufacturer,
+                strength: item.strength,
+                category: item.category,
+                form: null,
+                activeIngredients: null,
+                registryStatus: item.status === 'verified' ? 'Active' : null,
+                approvalDate: null,
+              });
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push({ pathname: '/(user)/home/result', params: { code: item.nafdacNumber, result } } as any)}
+                  style={({ pressed }) => [styles.scanItem, index === recentScans.length - 1 && { marginBottom: 0 }, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={[styles.scanIcon, index % 2 === 1 && { backgroundColor: '#1a8a7a' }]}>
+                    <View style={styles.blisterGrid}>
+                      {[...Array(6)].map((_, i) => (
+                        <View key={i} style={styles.blisterPill} />
+                      ))}
+                    </View>
+                  </View>
 
-            <View style={styles.scanInfo}>
-              <Text style={styles.scanName}>Paracetamol</Text>
-              <Text style={styles.scanBatch}>BATCH #88219</Text>
-            </View>
+                  <View style={styles.scanInfo}>
+                    <Text style={styles.scanName}>{item.drugName ?? item.nafdacNumber}</Text>
+                    <Text style={styles.scanBatch}>NAFDAC: {item.nafdacNumber}</Text>
+                  </View>
 
-            <View style={styles.scanRight}>
-              <View style={styles.authenticBadge}>
-                <Text style={styles.authenticText}>AUTHENTIC</Text>
-              </View>
-              <Text style={styles.scanTime}>2h ago</Text>
-            </View>
-          </Pressable>
-
-          {/* Item 2 */}
-          <Pressable
-            onPress={() => router.push({ pathname: '/(user)/home/result', params: { code: 'MOCK_NAFDAC_12345' } } as any)}
-            style={({ pressed }) => [styles.scanItem, { marginBottom: 0 }, pressed && { opacity: 0.85 }]}
-          >
-            <View style={[styles.scanIcon, { backgroundColor: '#1a8a7a' }]}>
-              {/* Bottle representation */}
-              <View style={styles.bottleCap} />
-              <View style={styles.bottleBody} />
-            </View>
-
-            <View style={styles.scanInfo}>
-              <Text style={styles.scanName}>Amoxicillin</Text>
-              <Text style={styles.scanBatch}>BATCH #44120</Text>
-            </View>
-
-            <View style={styles.scanRight}>
-              <View style={styles.authenticBadge}>
-                <Text style={styles.authenticText}>AUTHENTIC</Text>
-              </View>
-              <Text style={styles.scanTime}>Yesterday</Text>
-            </View>
-          </Pressable>
+                  <View style={styles.scanRight}>
+                    <View style={[styles.authenticBadge, { backgroundColor: display.bg }]}>
+                      <Text style={[styles.authenticText, { color: display.color }]}>{display.label}</Text>
+                    </View>
+                    <Text style={styles.scanTime}>{formatRelativeTime(item.scannedAt)}</Text>
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

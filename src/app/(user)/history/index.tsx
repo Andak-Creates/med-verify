@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -11,13 +12,71 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../../context/AuthContext";
+import { getApiErrorMessage } from "../../../lib/api";
+import { getScanHistory, type ScanHistoryItem, type ScanHistoryStats } from "../../../lib/drugs";
+
+const STATUS_DISPLAY: Record<ScanHistoryItem["status"], { label: string; bg: string; color: string; icon: string; iconBg: string }> = {
+  verified: { label: "AUTHENTIC", bg: "#EBF5EB", color: "#2E7D32", icon: "link", iconBg: "#EEF1FB" },
+  flagged: { label: "FLAGGED", bg: "#FFF7ED", color: "#C2410C", icon: "warning-outline", iconBg: "#FFF7ED" },
+  not_found: { label: "NOT FOUND", bg: "#FEF2F2", color: "#B91C1C", icon: "warning-outline", iconBg: "#FEF2F2" },
+};
+
+function formatRelativeTime(isoDate: string): string {
+  const date = new Date(isoDate);
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meds" | "consultations">("meds");
   const [medFilter, setMedFilter] = useState<"all" | "authentic" | "flagged">(
     "all",
   );
+  const [items, setItems] = useState<ScanHistoryItem[]>([]);
+  const [stats, setStats] = useState<ScanHistoryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoading(true);
+      setError(null);
+      getScanHistory({ limit: 50 })
+        .then(({ items: fetched, stats: fetchedStats }) => {
+          if (cancelled) return;
+          setItems(fetched);
+          setStats(fetchedStats);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setError(getApiErrorMessage(err, "Could not load your scan history."));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  const filteredItems = items.filter((item) => {
+    if (medFilter === "all") return true;
+    if (medFilter === "authentic") return item.status === "verified";
+    return item.status === "flagged" || item.status === "not_found";
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -38,9 +97,9 @@ export default function HistoryScreen() {
               />
               <View style={styles.notifDot} />
             </Pressable>
-            <Pressable style={styles.avatarButton}>
+            <Pressable style={styles.avatarButton} onPress={() => router.push('/(user)/account' as any)}>
               <Image
-                source={{ uri: "https://i.pravatar.cc/150?img=47" }}
+                source={{ uri: user?.profileImage || "https://i.pravatar.cc/150?img=47" }}
                 style={styles.avatarImg}
               />
             </Pressable>
@@ -154,177 +213,96 @@ export default function HistoryScreen() {
             </View>
 
             {/* Meds List */}
-            <View style={styles.cardList}>
-              {/* Item 1 */}
-              <View style={styles.medCard}>
-                <View style={styles.medHeader}>
-                  <View
-                    style={[styles.medIconWrap, { backgroundColor: "#EEF1FB" }]}
-                  >
-                    <Ionicons
-                      name="link"
-                      size={20}
-                      color="#0B1C5A"
-                      style={{ transform: [{ rotate: "45deg" }] }}
-                    />
-                  </View>
-                  <View style={styles.medInfo}>
-                    <Text style={styles.medName}>Paracetamol</Text>
-                    <Text style={styles.medBatch}>Batch: #PR55029</Text>
-                  </View>
-                  <View
-                    style={[styles.statusBadge, { backgroundColor: "#EBF5EB" }]}
-                  >
-                    <Text
-                      style={[styles.statusBadgeText, { color: "#2E7D32" }]}
-                    >
-                      AUTHENTIC
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.medFooter}>
-                  <View style={styles.timeWrap}>
-                    <Ionicons name="time-outline" size={14} color="#6B7280" />
-                    <Text style={styles.timeText}>2h ago</Text>
-                  </View>
-                  <TouchableOpacity>
-                    <Text style={[styles.actionText, { color: "#0B1C5A" }]}>
-                      View Details ›
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+            {loading ? (
+              <View style={{ paddingVertical: 60, alignItems: "center" }}>
+                <ActivityIndicator size="large" color="#0B1C5A" />
               </View>
-
-              {/* Item 2 */}
-              <View style={styles.medCard}>
-                <View style={styles.medHeader}>
-                  <View
-                    style={[styles.medIconWrap, { backgroundColor: "#FEF2F2" }]}
-                  >
-                    <Ionicons
-                      name="warning-outline"
-                      size={20}
-                      color="#EF4444"
-                    />
-                  </View>
-                  <View style={styles.medInfo}>
-                    <Text style={styles.medName}>Amoxicillin</Text>
-                    <Text style={styles.medBatch}>Batch: #AX-8812</Text>
-                  </View>
-                  <View
-                    style={[styles.statusBadge, { backgroundColor: "#FEF2F2" }]}
-                  >
-                    <Text
-                      style={[styles.statusBadgeText, { color: "#B91C1C" }]}
-                    >
-                      COUNTERFEIT
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.medFooter}>
-                  <View style={styles.timeWrap}>
-                    <Ionicons name="time-outline" size={14} color="#6B7280" />
-                    <Text style={styles.timeText}>Yesterday</Text>
-                  </View>
-                  <TouchableOpacity>
-                    <Text style={[styles.actionText, { color: "#B91C1C" }]}>
-                      Report Issue ⓘ
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+            ) : error ? (
+              <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 20 }}>
+                <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
+                <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>{error}</Text>
               </View>
-
-              {/* Item 3 */}
-              <View style={styles.medCard}>
-                <View style={styles.medHeader}>
-                  <View
-                    style={[styles.medIconWrap, { backgroundColor: "#E5E7EB" }]}
-                  >
-                    <Ionicons
-                      name="help-circle-outline"
-                      size={22}
-                      color="#374151"
-                    />
-                  </View>
-                  <View style={styles.medInfo}>
-                    <Text style={styles.medName}>Metformin</Text>
-                    <Text style={styles.medBatch}>Batch: #MF-4401</Text>
-                  </View>
-                  <View
-                    style={[styles.statusBadge, { backgroundColor: "#FFF7ED" }]}
-                  >
-                    <Text
-                      style={[styles.statusBadgeText, { color: "#C2410C" }]}
-                    >
-                      UNVERIFIED
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.medFooter}>
-                  <View style={styles.timeWrap}>
-                    <Ionicons name="time-outline" size={14} color="#6B7280" />
-                    <Text style={styles.timeText}>Oct 12, 2023</Text>
-                  </View>
-                  <TouchableOpacity>
-                    <Text style={[styles.actionText, { color: "#374151" }]}>
-                      Retry Scan ⟳
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+            ) : filteredItems.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 20 }}>
+                <Ionicons name="document-text-outline" size={32} color="#9CA3AF" />
+                <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>
+                  {items.length === 0
+                    ? "No scans yet. Verify a drug to see it appear here."
+                    : "No scans match this filter."}
+                </Text>
               </View>
-
-              {/* Item 4 */}
-              <View style={styles.medCard}>
-                <View style={styles.medHeader}>
-                  <View
-                    style={[styles.medIconWrap, { backgroundColor: "#EEF1FB" }]}
-                  >
-                    <Ionicons
-                      name="link"
-                      size={20}
-                      color="#0B1C5A"
-                      style={{ transform: [{ rotate: "45deg" }] }}
-                    />
-                  </View>
-                  <View style={styles.medInfo}>
-                    <Text style={styles.medName}>Lisinopril</Text>
-                    <Text style={styles.medBatch}>Batch: #LN-9923</Text>
-                  </View>
-                  <View
-                    style={[styles.statusBadge, { backgroundColor: "#EBF5EB" }]}
-                  >
-                    <Text
-                      style={[styles.statusBadgeText, { color: "#2E7D32" }]}
-                    >
-                      AUTHENTIC
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.medFooter}>
-                  <View style={styles.timeWrap}>
-                    <Ionicons name="time-outline" size={14} color="#6B7280" />
-                    <Text style={styles.timeText}>Oct 10, 2023</Text>
-                  </View>
-                  <TouchableOpacity>
-                    <Text style={[styles.actionText, { color: "#0B1C5A" }]}>
-                      View Details ›
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+            ) : (
+              <View style={styles.cardList}>
+                {filteredItems.map((item) => {
+                  const display = STATUS_DISPLAY[item.status];
+                  return (
+                    <View key={item.id} style={styles.medCard}>
+                      <View style={styles.medHeader}>
+                        <View style={[styles.medIconWrap, { backgroundColor: display.iconBg }]}>
+                          <Ionicons
+                            name={display.icon as any}
+                            size={20}
+                            color={display.color}
+                            style={display.icon === "link" ? { transform: [{ rotate: "45deg" }] } : undefined}
+                          />
+                        </View>
+                        <View style={styles.medInfo}>
+                          <Text style={styles.medName}>{item.drugName ?? item.nafdacNumber}</Text>
+                          <Text style={styles.medBatch}>NAFDAC: {item.nafdacNumber}</Text>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: display.bg }]}>
+                          <Text style={[styles.statusBadgeText, { color: display.color }]}>
+                            {display.label}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.medFooter}>
+                        <View style={styles.timeWrap}>
+                          <Ionicons name="time-outline" size={14} color="#6B7280" />
+                          <Text style={styles.timeText}>{formatRelativeTime(item.scannedAt)}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const result = JSON.stringify({
+                              nafdacNumber: item.nafdacNumber,
+                              found: item.status !== 'not_found',
+                              verificationResult: item.status,
+                              productName: item.drugName,
+                              manufacturer: item.manufacturer,
+                              strength: item.strength,
+                              category: item.category,
+                              form: null,
+                              activeIngredients: null,
+                              registryStatus: item.status === 'verified' ? 'Active' : null,
+                              approvalDate: null,
+                            });
+                            router.push({ pathname: '/(user)/home/result', params: { code: item.nafdacNumber, result } } as any);
+                          }}
+                        >
+                          <Text style={[styles.actionText, { color: "#0B1C5A" }]}>
+                            View Details ›
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
-            </View>
+            )}
 
             {/* Stats */}
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>TOTAL SCANS</Text>
-                <Text style={styles.statValue}>124</Text>
+            {stats && (
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>TOTAL SCANS</Text>
+                  <Text style={styles.statValue}>{stats.totalScans}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>AUTHENTICITY RATE</Text>
+                  <Text style={styles.statValue}>{stats.authenticityRate}%</Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>AUTHENTICITY RATE</Text>
-                <Text style={styles.statValue}>98.2%</Text>
-              </View>
-            </View>
+            )}
           </View>
         )}
 

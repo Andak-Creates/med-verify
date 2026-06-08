@@ -1,6 +1,6 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Pressable,
@@ -9,43 +9,41 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { DrugVerificationResult } from '../../../lib/drugs';
 
-// Mock drug database
-const MOCK_DRUGS: Record<string, {
-  name: string; brand: string; nafdac: string; batch: string;
-  expiry: string; manufacturer: string; status: 'authentic' | 'counterfeit';
-  category: string; strength: string;
+const STATUS_CONFIG: Record<DrugVerificationResult['verificationResult'], {
+  color: string; bg: string; border: string; icon: keyof typeof Ionicons.glyphMap; label: string; message: string;
 }> = {
-  default: {
-    name: 'Paracetamol BP',
-    brand: 'Emzor',
-    nafdac: 'A4-0118',
-    batch: 'BT-882219',
-    expiry: 'Dec 2026',
-    manufacturer: 'Emzor Pharmaceutical Industries',
-    status: 'authentic',
-    category: 'Analgesic / Antipyretic',
-    strength: '500mg Tablets',
+  verified: {
+    color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', icon: 'shield-checkmark', label: 'VERIFIED',
+    message: 'This medication is registered and active with NAFDAC.',
   },
-  MOCK_NAFDAC_12345: {
-    name: 'Amoxicillin',
-    brand: 'Ampiclox',
-    nafdac: 'B3-2240',
-    batch: 'BT-441120',
-    expiry: 'Mar 2027',
-    manufacturer: 'GlaxoSmithKline Nigeria',
-    status: 'authentic',
-    category: 'Antibiotic',
-    strength: '500mg Capsules',
+  flagged: {
+    color: '#d97706', bg: '#fffbeb', border: '#fde68a', icon: 'warning', label: 'FLAGGED',
+    message: 'This NAFDAC number is registered but not currently active. Proceed with caution.',
+  },
+  not_found: {
+    color: '#dc2626', bg: '#fef2f2', border: '#fecaca', icon: 'close-circle', label: 'NOT FOUND',
+    message: 'No registered drug was found for this NAFDAC number. This product may be counterfeit.',
   },
 };
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { code } = useLocalSearchParams<{ code: string }>();
+  const { code, result } = useLocalSearchParams<{ code: string; result?: string }>();
 
-  const drug = MOCK_DRUGS[code ?? ''] ?? MOCK_DRUGS.default;
-  const isAuthentic = drug.status === 'authentic';
+  const drug = useMemo<DrugVerificationResult | null>(() => {
+    if (!result) return null;
+    try {
+      return JSON.parse(result) as DrugVerificationResult;
+    } catch {
+      return null;
+    }
+  }, [result]);
+
+  const verificationResult = drug?.verificationResult ?? 'not_found';
+  const status = STATUS_CONFIG[verificationResult];
+  const nafdacNumber = drug?.nafdacNumber ?? code;
 
   // Entrance animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -60,14 +58,18 @@ export default function ResultScreen() {
     ]).start();
   }, []);
 
-  const statusColor = isAuthentic ? '#16a34a' : '#dc2626';
-  const statusBg = isAuthentic ? '#f0fdf4' : '#fef2f2';
-  const statusBorder = isAuthentic ? '#bbf7d0' : '#fecaca';
-  const statusIcon = isAuthentic ? 'shield-checkmark' : 'warning';
-  const statusLabel = isAuthentic ? 'AUTHENTIC' : 'COUNTERFEIT';
-  const statusMsg = isAuthentic
-    ? 'This medication is verified and safe to use.'
-    : 'WARNING: This product may be fake. Do not consume.';
+  const infoRows = drug?.found
+    ? [
+        { label: 'Drug Name', value: drug.productName },
+        { label: 'Strength', value: drug.strength },
+        { label: 'Category', value: drug.category },
+        { label: 'Form', value: drug.form },
+        { label: 'NAFDAC No.', value: drug.nafdacNumber },
+        { label: 'Manufacturer', value: drug.manufacturer },
+        { label: 'Registry Status', value: drug.registryStatus },
+        { label: 'Approval Date', value: drug.approvalDate },
+      ].filter((row) => row.value)
+    : [{ label: 'NAFDAC No. Entered', value: nafdacNumber }];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
@@ -98,24 +100,24 @@ export default function ResultScreen() {
         }}>
           <View style={{
             width: 100, height: 100, borderRadius: 50,
-            backgroundColor: statusBg, borderWidth: 3, borderColor: statusBorder,
+            backgroundColor: status.bg, borderWidth: 3, borderColor: status.border,
             alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-            shadowColor: statusColor, shadowOpacity: 0.25, shadowRadius: 20, elevation: 6,
+            shadowColor: status.color, shadowOpacity: 0.25, shadowRadius: 20, elevation: 6,
           }}>
-            <Ionicons name={statusIcon as any} size={52} color={statusColor} />
+            <Ionicons name={status.icon} size={52} color={status.color} />
           </View>
 
           <View style={{
-            backgroundColor: statusBg, borderWidth: 1.5, borderColor: statusBorder,
+            backgroundColor: status.bg, borderWidth: 1.5, borderColor: status.border,
             borderRadius: 50, paddingHorizontal: 20, paddingVertical: 7, marginBottom: 10,
           }}>
-            <Text style={{ color: statusColor, fontWeight: '900', fontSize: 13, letterSpacing: 2 }}>
-              {statusLabel}
+            <Text style={{ color: status.color, fontWeight: '900', fontSize: 13, letterSpacing: 2 }}>
+              {status.label}
             </Text>
           </View>
 
           <Text style={{ color: '#374151', fontSize: 14, textAlign: 'center', lineHeight: 21, paddingHorizontal: 16 }}>
-            {statusMsg}
+            {status.message}
           </Text>
         </Animated.View>
 
@@ -134,16 +136,7 @@ export default function ResultScreen() {
               Drug Information
             </Text>
 
-            {[
-              { label: 'Drug Name', value: drug.name },
-              { label: 'Brand', value: drug.brand },
-              { label: 'Strength', value: drug.strength },
-              { label: 'Category', value: drug.category },
-              { label: 'NAFDAC No.', value: drug.nafdac },
-              { label: 'Batch No.', value: drug.batch },
-              { label: 'Expiry Date', value: drug.expiry },
-              { label: 'Manufacturer', value: drug.manufacturer },
-            ].map((row, i, arr) => (
+            {infoRows.map((row, i, arr) => (
               <View key={row.label} style={{
                 flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
                 paddingVertical: 11,
@@ -160,21 +153,23 @@ export default function ResultScreen() {
         {/* Action Buttons */}
         <Animated.View style={{ paddingHorizontal: 20, gap: 12, opacity: fadeAnim }}>
           {/* Full Details */}
-          <Pressable
-            onPress={() => router.push({ pathname: '/(user)/home/drug-details', params: { code } } as any)}
-            style={({ pressed }) => ({
-              backgroundColor: '#0B1C5A', borderRadius: 16, paddingVertical: 16,
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Ionicons name="information-circle-outline" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>View Full Drug Details</Text>
-          </Pressable>
+          {drug?.found && (
+            <Pressable
+              onPress={() => router.push({ pathname: '/(user)/home/drug-details', params: { code: nafdacNumber, result } } as any)}
+              style={({ pressed }) => ({
+                backgroundColor: '#0B1C5A', borderRadius: 16, paddingVertical: 16,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Ionicons name="information-circle-outline" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>View Full Drug Details</Text>
+            </Pressable>
+          )}
 
           {/* Report */}
           <Pressable
-            onPress={() => router.push({ pathname: '/(user)/home/report', params: { code } } as any)}
+            onPress={() => router.push({ pathname: '/(user)/home/report', params: { code: nafdacNumber } } as any)}
             style={({ pressed }) => ({
               backgroundColor: '#fff', borderRadius: 16, paddingVertical: 16,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -188,7 +183,7 @@ export default function ResultScreen() {
 
           {/* Scan Again */}
           <Pressable
-            onPress={() => router.replace('/(user)/home/scan-qr' as any)}
+            onPress={() => router.replace('/(user)/home/scan-manual' as any)}
             style={({ pressed }) => ({
               alignItems: 'center', paddingVertical: 12, opacity: pressed ? 0.6 : 1,
             })}
@@ -203,4 +198,3 @@ export default function ResultScreen() {
     </SafeAreaView>
   );
 }
-

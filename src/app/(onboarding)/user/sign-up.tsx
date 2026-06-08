@@ -2,6 +2,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,15 +11,70 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useAuth } from "../../../context/AuthContext";
+import { getApiErrorMessage } from "../../../lib/api";
+import { useGoogleSignIn } from "../../../hooks/useGoogleSignIn";
+import { FormError } from "../../../components/FormError";
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { signup, googleAuth } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleSignUp = () => {
-    router.replace("/(onboarding)/user/otp" as any);
+  const { ready: googleReady, promptAsync: promptGoogleSignIn } = useGoogleSignIn(
+    async (idToken) => {
+      setGoogleLoading(true);
+      setFormError(null);
+      try {
+        const user = await googleAuth(idToken);
+        router.replace((user.role === "PHARMACIST" ? "/(pharmacist)/dashboard" : "/(user)/home") as any);
+      } catch (err) {
+        setFormError(getApiErrorMessage(err, "Could not sign up with Google. That email may already be registered with a password — try logging in instead."));
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    (message) => {
+      setGoogleLoading(false);
+      setFormError(message);
+    }
+  );
+
+  const handleGoogleSignIn = async () => {
+    setFormError(null);
+    try {
+      await promptGoogleSignIn();
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, "Could not start Google sign-in"));
+    }
+  };
+
+  const handleSignUp = async () => {
+    const email = identifier.trim().toLowerCase();
+    if (!email) {
+      setFormError("Enter your email address to continue.");
+      return;
+    }
+    if (password.length < 8) {
+      setFormError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setFormError(null);
+    setLoading(true);
+    try {
+      await signup(email, password, "USER");
+      router.replace({ pathname: "/(onboarding)/user/otp" as any, params: { email } });
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, "Could not create your account. That email may already be in use — try logging in instead."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = () => {
@@ -71,7 +127,7 @@ export default function SignUpScreen() {
           </Text>
           <TextInput
             value={identifier}
-            onChangeText={setIdentifier}
+            onChangeText={(text) => { setIdentifier(text); setFormError(null); }}
             placeholder="example@email.com"
             placeholderTextColor="#9ca3af"
             keyboardType="email-address"
@@ -103,7 +159,7 @@ export default function SignUpScreen() {
           <View style={{ position: "relative", marginBottom: 32 }}>
             <TextInput
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => { setPassword(text); setFormError(null); }}
               placeholder="At least 8 characters"
               placeholderTextColor="#9ca3af"
               secureTextEntry={!showPassword}
@@ -137,21 +193,28 @@ export default function SignUpScreen() {
             </Pressable>
           </View>
 
+          <FormError message={formError} />
+
           {/* Sign Up Button */}
           <Pressable
             onPress={handleSignUp}
+            disabled={loading}
             style={({ pressed }) => ({
               backgroundColor: "#0b1c5a",
               borderRadius: 50,
               paddingVertical: 18,
               alignItems: "center",
               marginBottom: 24,
-              opacity: pressed ? 0.85 : 1,
+              opacity: pressed || loading ? 0.85 : 1,
             })}
           >
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
-              Sign Up
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
+                Sign Up
+              </Text>
+            )}
           </Pressable>
 
           {/* Divider */}
@@ -173,6 +236,8 @@ export default function SignUpScreen() {
 
           {/* Social Buttons */}
           <Pressable
+            onPress={handleGoogleSignIn}
+            disabled={!googleReady || googleLoading}
             style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
@@ -183,20 +248,26 @@ export default function SignUpScreen() {
               marginBottom: 12,
               borderWidth: 1.5,
               borderColor: "#e5e7eb",
-              opacity: pressed ? 0.8 : 1,
+              opacity: pressed || !googleReady || googleLoading ? 0.6 : 1,
             })}
           >
-            <FontAwesome name="google" size={20} color="#DB4437" />
-            <Text
-              style={{
-                fontWeight: "600",
-                fontSize: 15,
-                color: "#374151",
-                marginLeft: 5,
-              }}
-            >
-              Google
-            </Text>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#374151" />
+            ) : (
+              <>
+                <FontAwesome name="google" size={20} color="#DB4437" />
+                <Text
+                  style={{
+                    fontWeight: "600",
+                    fontSize: 15,
+                    color: "#374151",
+                    marginLeft: 5,
+                  }}
+                >
+                  Google
+                </Text>
+              </>
+            )}
           </Pressable>
 
           <Pressable

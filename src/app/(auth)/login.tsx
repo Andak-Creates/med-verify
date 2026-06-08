@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,16 +10,65 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
+import { getApiErrorMessage } from '../../lib/api';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
+import { FormError } from '../../components/FormError';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, googleAuth } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleLogin = () => {
-    // Mock: navigate to dashboard
-    router.replace('/(user)/home' as any);
+  const { ready: googleReady, promptAsync: promptGoogleSignIn } = useGoogleSignIn(
+    async (idToken) => {
+      setGoogleLoading(true);
+      setFormError(null);
+      try {
+        const user = await googleAuth(idToken);
+        router.replace((user.role === 'PHARMACIST' ? '/(pharmacist)/dashboard' : '/(user)/home') as any);
+      } catch (err) {
+        setFormError(getApiErrorMessage(err, 'Could not sign in with Google. That email may already be registered with a password — try logging in with your password instead.'));
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    (message) => {
+      setGoogleLoading(false);
+      setFormError(message);
+    }
+  );
+
+  const handleGoogleSignIn = async () => {
+    setFormError(null);
+    try {
+      await promptGoogleSignIn();
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not start Google sign-in'));
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!identifier.trim() || !password) {
+      setFormError('Enter your email and password to continue.');
+      return;
+    }
+
+    setFormError(null);
+    setLoading(true);
+    try {
+      const user = await login(identifier.trim().toLowerCase(), password);
+      router.replace((user.role === 'PHARMACIST' ? '/(pharmacist)/dashboard' : '/(user)/home') as any);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Incorrect email or password. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignUp = () => {
@@ -79,7 +129,7 @@ export default function LoginScreen() {
           </Text>
           <TextInput
             value={identifier}
-            onChangeText={setIdentifier}
+            onChangeText={(text) => { setIdentifier(text); setFormError(null); }}
             placeholder="example@email.com"
             placeholderTextColor="#9ca3af"
             keyboardType="email-address"
@@ -111,7 +161,7 @@ export default function LoginScreen() {
           <View style={{ position: 'relative', marginBottom: 32 }}>
             <TextInput
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => { setPassword(text); setFormError(null); }}
               placeholder="Enter your password"
               placeholderTextColor="#9ca3af"
               secureTextEntry={!showPassword}
@@ -141,19 +191,26 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
+          <FormError message={formError} />
+
           {/* Log In Button */}
           <Pressable
             onPress={handleLogin}
+            disabled={loading}
             style={({ pressed }) => ({
               backgroundColor: '#0b1c5a',
               borderRadius: 50,
               paddingVertical: 18,
               alignItems: 'center',
               marginBottom: 24,
-              opacity: pressed ? 0.85 : 1,
+              opacity: pressed || loading ? 0.85 : 1,
             })}
           >
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Log In</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Log In</Text>
+            )}
           </Pressable>
 
           {/* Divider */}
@@ -167,6 +224,8 @@ export default function LoginScreen() {
 
           {/* Social Buttons */}
           <Pressable
+            onPress={handleGoogleSignIn}
+            disabled={!googleReady || googleLoading}
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
@@ -177,11 +236,17 @@ export default function LoginScreen() {
               marginBottom: 12,
               borderWidth: 1.5,
               borderColor: '#e5e7eb',
-              opacity: pressed ? 0.8 : 1,
+              opacity: pressed || !googleReady || googleLoading ? 0.6 : 1,
             })}
           >
-            <Text style={{ fontSize: 20, marginRight: 10 }}>🌐</Text>
-            <Text style={{ fontWeight: '600', fontSize: 15, color: '#374151' }}>Google</Text>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#374151" />
+            ) : (
+              <>
+                <Text style={{ fontSize: 20, marginRight: 10 }}>🌐</Text>
+                <Text style={{ fontWeight: '600', fontSize: 15, color: '#374151' }}>Google</Text>
+              </>
+            )}
           </Pressable>
 
           <Pressable

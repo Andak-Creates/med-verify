@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import {
+  ActivityIndicator,
   Platform,
   StyleSheet,
   Text,
@@ -9,8 +10,27 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Layout() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#0B1C5A" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href={'/(onboarding)/splash' as any} />;
+  }
+
+  if (user?.role === 'PHARMACIST') {
+    return <Redirect href={'/(pharmacist)/dashboard' as any} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />

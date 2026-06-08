@@ -1,19 +1,132 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../../../context/AuthContext';
+import { getApiErrorMessage } from '../../../lib/api';
+
+const FALLBACK_AVATAR = 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80';
+
+// Must match the backend's VALID_BLOOD_GROUPS in users.controller.js exactly.
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
 export default function AccountScreen() {
+  const router = useRouter();
+  const { user, logout, updateProfile, uploadAvatar } = useAuth();
   const [biometricEnabled, setBiometricEnabled] = useState(true);
+  const [editVisible, setEditVisible] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [bloodGroup, setBloodGroup] = useState(user?.bloodGroup ?? '');
+  const [allergies, setAllergies] = useState(user?.allergies ?? '');
+  const [chronicConditions, setChronicConditions] = useState(user?.chronicConditions ?? '');
+
+  const openEdit = () => {
+    setFullName(user?.fullName ?? '');
+    setBloodGroup(user?.bloodGroup ?? '');
+    setAllergies(user?.allergies ?? '');
+    setChronicConditions(user?.chronicConditions ?? '');
+    setEditVisible(true);
+  };
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const updates: Parameters<typeof updateProfile>[0] = {
+        bloodGroup: bloodGroup.trim() || null,
+        allergies: allergies.trim() || null,
+        chronicConditions: chronicConditions.trim() || null,
+      };
+      if (fullName.trim()) updates.fullName = fullName.trim();
+      await updateProfile(updates);
+      setEditVisible(false);
+    } catch (err) {
+      Alert.alert('Could not save', getApiErrorMessage(err, 'Please try again.'));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to update your avatar.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const fileName = asset.fileName ?? `avatar-${Date.now()}.jpg`;
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
+
+    setUploadingAvatar(true);
+    try {
+      await uploadAvatar({
+        uri: asset.uri,
+        name: fileName,
+        type: asset.mimeType ?? `image/${ext}`,
+      });
+    } catch (err) {
+      Alert.alert('Upload failed', getApiErrorMessage(err, 'Could not update your avatar.'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const performSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await logout();
+      router.replace('/(auth)/login' as any);
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    // Alert.alert is a no-op on web (react-native-web has no implementation),
+    // so the confirmation dialog never appears there — use window.confirm instead.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to sign out?')) {
+        performSignOut();
+      }
+      return;
+    }
+
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: performSignOut },
+    ]);
+  };
+
+  const displayName = user?.fullName || user?.username || 'MedVerify User';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -33,18 +146,22 @@ export default function AccountScreen() {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Image 
-              source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80' }} 
-              style={styles.avatarImg} 
+            <Image
+              source={{ uri: user?.profileImage || FALLBACK_AVATAR }}
+              style={styles.avatarImg}
             />
-            <View style={styles.editBadge}>
-              <Ionicons name="pencil" size={12} color="#fff" />
-            </View>
+            <Pressable style={styles.editBadge} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="pencil" size={12} color="#fff" />
+              )}
+            </Pressable>
           </View>
-          <Text style={styles.userName}>Alexander Henderson</Text>
-          <Text style={styles.userEmail}>alex.henderson@medical.com</Text>
-          
-          <TouchableOpacity style={styles.editBtn}>
+          <Text style={styles.userName}>{displayName}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+
+          <TouchableOpacity style={styles.editBtn} onPress={openEdit}>
             <Text style={styles.editBtnText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
@@ -52,35 +169,35 @@ export default function AccountScreen() {
         {/* Medical Profile Section */}
         <Text style={styles.sectionTitle}>Medical Profile</Text>
         <View style={styles.cardGroup}>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
             <View style={styles.menuIconWrap}>
               <Ionicons name="water-outline" size={20} color="#312E81" />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Blood Group</Text>
-              <Text style={styles.menuSub}>O Positive (O+)</Text>
+              <Text style={styles.menuSub}>{user?.bloodGroup || 'Not set'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
             <View style={styles.menuIconWrap}>
               <Ionicons name="warning-outline" size={20} color="#312E81" />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Allergies</Text>
-              <Text style={styles.menuSub}>Penicillin, Peanuts</Text>
+              <Text style={styles.menuSub}>{user?.allergies || 'None reported'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
             <View style={styles.menuIconWrap}>
               <Ionicons name="shield-checkmark-outline" size={20} color="#312E81" />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Chronic Conditions</Text>
-              <Text style={styles.menuSub}>None reported</Text>
+              <Text style={styles.menuSub}>{user?.chronicConditions || 'None reported'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -160,12 +277,84 @@ export default function AccountScreen() {
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity style={styles.signOutBtn}>
-          <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-          <Text style={styles.signOutText}>Sign Out</Text>
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} disabled={signingOut}>
+          {signingOut ? (
+            <ActivityIndicator size="small" color="#DC2626" />
+          ) : (
+            <>
+              <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </>
+          )}
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={editVisible} animationType="slide" transparent onRequestClose={() => setEditVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <Pressable onPress={() => setEditVisible(false)}>
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Your full name"
+                placeholderTextColor="#9CA3AF"
+              />
+
+              <Text style={styles.fieldLabel}>Blood Group</Text>
+              <View style={styles.bloodGroupRow}>
+                {BLOOD_GROUPS.map((group) => (
+                  <Pressable
+                    key={group}
+                    style={[styles.bloodGroupChip, bloodGroup === group && styles.bloodGroupChipActive]}
+                    onPress={() => setBloodGroup(bloodGroup === group ? '' : group)}
+                  >
+                    <Text style={[styles.bloodGroupChipText, bloodGroup === group && styles.bloodGroupChipTextActive]}>
+                      {group}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.fieldLabel}>Allergies</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={allergies}
+                onChangeText={setAllergies}
+                placeholder="e.g. Penicillin, Peanuts"
+                placeholderTextColor="#9CA3AF"
+              />
+
+              <Text style={styles.fieldLabel}>Chronic Conditions</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={chronicConditions}
+                onChangeText={setChronicConditions}
+                placeholder="e.g. None reported"
+                placeholderTextColor="#9CA3AF"
+              />
+            </ScrollView>
+
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile} disabled={savingProfile}>
+              {savingProfile ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -202,4 +391,19 @@ const styles = StyleSheet.create({
   /* Sign Out Button */
   signOutBtn: { backgroundColor: '#fff', marginHorizontal: 22, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 10, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, marginBottom: 20 },
   signOutText: { fontSize: 16, fontWeight: '700', color: '#DC2626' },
+
+  /* Edit Profile Modal */
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(17,24,39,0.45)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: '85%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 19, fontWeight: '800', color: '#111827' },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 16 },
+  fieldInput: { backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB' },
+  bloodGroupRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bloodGroupChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
+  bloodGroupChipActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
+  bloodGroupChipText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  bloodGroupChipTextActive: { color: '#fff' },
+  saveBtn: { backgroundColor: '#312E81', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

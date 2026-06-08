@@ -2,6 +2,7 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,22 +13,32 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { verifyDrug } from '../../../lib/drugs';
+import { getApiErrorMessage } from '../../../lib/api';
 
 export default function ScanManualScreen() {
   const router = useRouter();
   const [nafdacCode, setNafdacCode] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleVerify = () => {
-    if (!nafdacCode.trim()) return;
+  const handleVerify = async () => {
+    const code = nafdacCode.trim();
+    if (!code) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const result = await verifyDrug(code);
       router.push({
         pathname: '/(user)/home/result',
-        params: { code: nafdacCode.trim() },
+        params: {
+          code,
+          result: JSON.stringify(result),
+        },
       } as any);
-    }, 1500);
+    } catch (err) {
+      Alert.alert('Verification failed', getApiErrorMessage(err, 'Could not verify this NAFDAC number. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const QUICK_EXAMPLES = ['A4-0118', 'B3-2240', 'C1-5567'];

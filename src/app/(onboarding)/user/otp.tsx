@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -12,14 +13,20 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../../context/AuthContext";
+import { getApiErrorMessage } from "../../../lib/api";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 55;
 
 export default function OtpScreen() {
+  const { email } = useLocalSearchParams<{ email: string }>();
+  const { verifyOtp, resendOtp } = useAuth();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
   const [canResend, setCanResend] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -47,16 +54,33 @@ export default function OtpScreen() {
     }
   };
 
-  const handleResend = () => {
-    if (!canResend) return;
-    setOtp(Array(OTP_LENGTH).fill(""));
-    setTimer(RESEND_SECONDS);
-    setCanResend(false);
-    inputRefs.current[0]?.focus();
+  const handleResend = async () => {
+    if (!canResend || !email) return;
+    setResending(true);
+    try {
+      await resendOtp(email);
+      setOtp(Array(OTP_LENGTH).fill(""));
+      setTimer(RESEND_SECONDS);
+      setCanResend(false);
+      inputRefs.current[0]?.focus();
+    } catch (err) {
+      Alert.alert("Couldn't resend code", getApiErrorMessage(err, "Please try again in a moment."));
+    } finally {
+      setResending(false);
+    }
   };
 
-  const handleVerify = () => {
-    router.replace("/(onboarding)/user/welcome");
+  const handleVerify = async () => {
+    if (!email) return;
+    setVerifying(true);
+    try {
+      const user = await verifyOtp(email, otp.join(""));
+      router.replace((user.role === 'PHARMACIST' ? '/(pharmacist)/dashboard' : '/(user)/home') as any);
+    } catch (err) {
+      Alert.alert("Verification failed", getApiErrorMessage(err, "That code didn't work. Please try again."));
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const isComplete = otp.every((d) => d !== "");
@@ -131,13 +155,13 @@ export default function OtpScreen() {
               <Text className="text-[#5A677B] text-[15px]">
                 Didn't receive code?{" "}
               </Text>
-              <TouchableOpacity onPress={handleResend} disabled={!canResend}>
+              <TouchableOpacity onPress={handleResend} disabled={!canResend || resending}>
                 <Text
                   className={`text-[15px] font-semibold ${
                     canResend ? "text-[#0b5cbe]" : "text-[#8E9CB2]"
                   }`}
                 >
-                  {canResend ? "Resend now" : `Resend in ${formattedTimer}`}
+                  {resending ? "Sending..." : canResend ? "Resend now" : `Resend in ${formattedTimer}`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -156,15 +180,21 @@ export default function OtpScreen() {
           <View className="px-6 pb-8">
             <TouchableOpacity
               onPress={handleVerify}
-              disabled={!isComplete}
+              disabled={!isComplete || verifying}
               className={`w-full h-[56px] rounded-2xl flex-row items-center justify-center ${
                 isComplete ? "bg-[#0b1c5a]" : "bg-[#0b1c5a]/40"
               }`}
             >
-              <Text className="text-white font-semibold text-[16px] mr-2">
-                Verify &amp; Continue
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color="white" />
+              {verifying ? (
+                <Ionicons name="reload" size={18} color="white" />
+              ) : (
+                <>
+                  <Text className="text-white font-semibold text-[16px] mr-2">
+                    Verify &amp; Continue
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color="white" />
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
