@@ -10,6 +10,9 @@ const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 export function useGoogleSignIn(onIdToken: (idToken: string) => void, onError?: (message: string) => void) {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
     // Always show Google's account chooser instead of silently reusing
     // whichever Google account the browser already has an active session for.
     selectAccount: true,

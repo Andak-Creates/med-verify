@@ -1,62 +1,50 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  ActivityIndicator,
+  Dimensions,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
-import { getScanHistory, type ScanHistoryItem } from '../../../lib/drugs';
 
-const RECENT_STATUS_DISPLAY: Record<ScanHistoryItem['status'], { label: string; bg: string; color: string }> = {
-  verified: { label: 'AUTHENTIC', bg: '#EBF5EB', color: '#2E7D32' },
-  flagged: { label: 'FLAGGED', bg: '#FFF7ED', color: '#C2410C' },
-  not_found: { label: 'NOT FOUND', bg: '#FEF2F2', color: '#B91C1C' },
-};
+const TIPS = [
+  { text: "Always check the expiry date before use.", image: require('../../../../assets/images/tip_expiry.png') },
+  { text: "Report suspicious or unsealed packaging immediately.", image: require('../../../../assets/images/tip_suspicious.png') },
+  { text: "Consult your pharmacist before mixing medications.", image: require('../../../../assets/images/tip_pharmacist.png') }
+];
 
-function formatRelativeTime(isoDate: string): string {
-  const date = new Date(isoDate);
-  const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [recentScans, setRecentScans] = useState<ScanHistoryItem[]>([]);
-  const [loadingRecent, setLoadingRecent] = useState(true);
+  
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      setLoadingRecent(true);
-      getScanHistory({ limit: 2 })
-        .then(({ items }) => {
-          if (!cancelled) setRecentScans(items);
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (!cancelled) setLoadingRecent(false);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }, [])
-  );
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTipIndex((prev) => {
+        const next = (prev + 1) % TIPS.length;
+        scrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+        return next;
+      });
+    }, 7000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setCurrentTipIndex(newIndex);
+  };
 
   const greetingName = user?.fullName?.split(' ')[0] || user?.username || 'there';
 
@@ -102,30 +90,46 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── Hero Scan Card ─────────────────────────────────── */}
-        <Pressable
-          onPress={() => router.push('/(user)/home/scan-qr' as any)}
-          style={({ pressed }) => [styles.heroCard, pressed && { opacity: 0.92 }]}
-        >
-          {/* Watermark */}
-          <View style={styles.heroWatermark}>
-            <Ionicons name="checkmark-done-circle-outline" size={170} color="#0B1C5A" />
+        {/* ── Tip Slideshow ──────────────────────────────────── */}
+        <View style={styles.sliderContainer}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleScrollEnd}
+            style={{ flexGrow: 0 }}
+          >
+            {TIPS.map((tip, index) => (
+              <View key={index} style={{ width: SCREEN_WIDTH }}>
+                <View style={styles.tipCard}>
+                  <Image source={tip.image} style={styles.tipImage} resizeMode="cover" />
+                  <View style={styles.tipOverlay}>
+                    <View style={styles.tipOverlayContent}>
+                      <View style={styles.tipIconWrap}>
+                        <Ionicons name="bulb" size={20} color="#0B1C5A" />
+                      </View>
+                      <Text style={styles.tipTextLarge}>
+                        {tip.text}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <View style={styles.paginationDots}>
+            {TIPS.map((_, i) => (
+              <View key={i} style={[styles.dot, currentTipIndex === i && styles.dotActive]} />
+            ))}
           </View>
+        </View>
 
-          <View style={styles.heroContent}>
-            {/* QR Icon block */}
-            <View style={styles.heroIconBlock}>
-              <Ionicons name="qr-code" size={30} color="#fff" />
-            </View>
-
-            <View style={styles.heroTextBlock}>
-              <Text style={styles.heroTitle}>Scan QR/Barcode</Text>
-              <Text style={styles.heroSub}>INSTANT VERIFICATION</Text>
-            </View>
-          </View>
-        </Pressable>
-
-        {/* ── Action Grid ────────────────────────────────────── */}
+        {/* ── Quick Actions ──────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+        </View>
+        
         <View style={styles.actionGrid}>
           <Pressable
             onPress={() => router.push('/(user)/home/scan-image' as any)}
@@ -148,80 +152,25 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* ── Tip Banner ─────────────────────────────────────── */}
-        <View style={styles.tipBanner}>
-          <View style={styles.tipIconWrap}>
-            <Ionicons name="bulb-outline" size={20} color="#0B1C5A" />
-          </View>
-          <Text style={styles.tipText}>
-            <Text style={styles.tipBold}>Tip: </Text>
-            Always check the expiry date before use.
-          </Text>
-        </View>
-
-        {/* ── Recent Scans ───────────────────────────────────── */}
-        <View style={styles.recentSection}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.recentTitle}>Recent Scans</Text>
-            <TouchableOpacity onPress={() => router.push('/(user)/history' as any)}>
-              <Text style={styles.seeAll}>SEE ALL</Text>
-            </TouchableOpacity>
+        {/* ── Hero Scan Card ─────────────────────────────────── */}
+        <Pressable
+          onPress={() => router.push('/(user)/home/scan-qr' as any)}
+          style={({ pressed }) => [styles.heroCard, pressed && { opacity: 0.92 }]}
+        >
+          <View style={styles.heroWatermark}>
+            <Ionicons name="checkmark-done-circle-outline" size={170} color="#0B1C5A" />
           </View>
 
-          {loadingRecent ? (
-            <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#0B1C5A" />
+          <View style={styles.heroContent}>
+            <View style={styles.heroIconBlock}>
+              <Ionicons name="qr-code" size={30} color="#fff" />
             </View>
-          ) : recentScans.length === 0 ? (
-            <View style={[styles.scanItem, { justifyContent: 'center' }]}>
-              <Text style={{ color: '#6B7280', fontSize: 13 }}>No scans yet — verify a drug to get started.</Text>
+            <View style={styles.heroTextBlock}>
+              <Text style={styles.heroTitle}>Scan QR/Barcode</Text>
+              <Text style={styles.heroSub}>INSTANT VERIFICATION</Text>
             </View>
-          ) : (
-            recentScans.map((item, index) => {
-              const display = RECENT_STATUS_DISPLAY[item.status];
-              const result = JSON.stringify({
-                nafdacNumber: item.nafdacNumber,
-                found: item.status !== 'not_found',
-                verificationResult: item.status,
-                productName: item.drugName,
-                manufacturer: item.manufacturer,
-                strength: item.strength,
-                category: item.category,
-                form: null,
-                activeIngredients: null,
-                registryStatus: item.status === 'verified' ? 'Active' : null,
-                approvalDate: null,
-              });
-              return (
-                <Pressable
-                  key={item.id}
-                  onPress={() => router.push({ pathname: '/(user)/home/result', params: { code: item.nafdacNumber, result } } as any)}
-                  style={({ pressed }) => [styles.scanItem, index === recentScans.length - 1 && { marginBottom: 0 }, pressed && { opacity: 0.85 }]}
-                >
-                  <View style={[styles.scanIcon, index % 2 === 1 && { backgroundColor: '#1a8a7a' }]}>
-                    <View style={styles.blisterGrid}>
-                      {[...Array(6)].map((_, i) => (
-                        <View key={i} style={styles.blisterPill} />
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.scanInfo}>
-                    <Text style={styles.scanName}>{item.drugName ?? item.nafdacNumber}</Text>
-                    <Text style={styles.scanBatch}>NAFDAC: {item.nafdacNumber}</Text>
-                  </View>
-
-                  <View style={styles.scanRight}>
-                    <View style={[styles.authenticBadge, { backgroundColor: display.bg }]}>
-                      <Text style={[styles.authenticText, { color: display.color }]}>{display.label}</Text>
-                    </View>
-                    <Text style={styles.scanTime}>{formatRelativeTime(item.scannedAt)}</Text>
-                  </View>
-                </Pressable>
-              );
-            })
-          )}
-        </View>
+          </View>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -396,6 +345,18 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
+  /* Section Title */
+  sectionHeader: {
+    paddingHorizontal: 22,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    letterSpacing: -0.2,
+  },
+
   /* Action grid */
   actionGrid: {
     flexDirection: 'row',
@@ -434,157 +395,68 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* Tip */
-  tipBanner: {
+  /* Large Tip Card Slider */
+  sliderContainer: {
+    marginBottom: 20,
+  },
+  tipCard: {
     marginHorizontal: 22,
-    marginBottom: 22,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 18,
-    padding: 14,
+    height: 240,
+    borderRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+    // shadow needs to be on an outer view if inside horizontal scroll, or just use elevation
+  },
+  tipImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  tipOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(11, 28, 90, 0.3)',
+    padding: 20,
+  },
+  tipOverlayContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 20,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
   },
   tipIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     backgroundColor: '#EEF1FB',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tipText: {
+  tipTextLarge: {
     flex: 1,
-    fontSize: 13,
-    color: '#374151',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0B1C5A',
     lineHeight: 20,
   },
-  tipBold: {
-    fontWeight: '800',
-    color: '#0B1C5A',
-  },
-
-  /* Recent scans */
-  recentSection: {
-    paddingHorizontal: 22,
-  },
-  recentHeader: {
+  paginationDots: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  recentTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0B1C5A',
-    letterSpacing: -0.2,
-  },
-  seeAll: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0B5CBE',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  scanItem: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 22,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#0B1C5A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 14,
-  },
-  scanIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: '#2D3E50',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    padding: 8,
-  },
-  /* Blister pack icon */
-  blisterGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: 30,
-    height: 20,
-    gap: 3,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
   },
-  blisterPill: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-  },
-  /* Bottle icon */
-  bottleCap: {
-    position: 'absolute',
-    top: 6,
-    width: 14,
+  dot: {
+    width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(11, 28, 90, 0.2)',
   },
-  bottleBody: {
-    position: 'absolute',
-    bottom: 8,
-    width: 20,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.6)',
+  dotActive: {
+    width: 16,
+    backgroundColor: '#0B1C5A',
   },
-  scanInfo: {
-    flex: 1,
-  },
-  scanName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0B1C5A',
-    marginBottom: 4,
-  },
-  scanBatch: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8E9CB2',
-    letterSpacing: 0.5,
-  },
-  scanRight: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  authenticBadge: {
-    backgroundColor: '#EBF5EB',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  authenticText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#2E7D32',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  scanTime: {
-    fontSize: 10,
-    color: '#B0BAC9',
-    fontWeight: '500',
-  },
+
 });

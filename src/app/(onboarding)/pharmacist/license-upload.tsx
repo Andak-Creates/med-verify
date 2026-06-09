@@ -1,80 +1,259 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LicenseUploadScreen() {
   const router = useRouter();
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [ninNumber, setNinNumber] = useState('');
+
+  const handleSubmit = () => {
+    router.push('/(onboarding)/pharmacist/verification-pending' as any);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#0B1C5A" />
-        </TouchableOpacity>
-        <View style={styles.progressWrap}>
-          <View style={styles.progressDot} />
-          <View style={[styles.progressDot, styles.progressDotActive]} />
-          <View style={styles.progressDot} />
-        </View>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.title}>Professional Verification</Text>
+          <Text style={styles.subtitle}>
+            Please upload your Pharmacists Council of Nigeria (PCN) License or NAFDAC Registration Number to verify your practitioner status.
+          </Text>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>Upload License</Text>
-        <Text style={styles.subtitle}>Please provide a clear photo or scan of your official pharmacist practicing license.</Text>
+          {/* Certificate Upload */}
+          <Text style={styles.label}>Pharmacy Council of Nigeria (PCN) Certificate</Text>
+          <Pressable style={styles.uploadBox}>
+            <View style={styles.uploadIconWrap}>
+              <Ionicons name="document-text" size={24} color="#312E81" />
+              <View style={styles.uploadArrow}>
+                <Ionicons name="arrow-up" size={12} color="#fff" />
+              </View>
+            </View>
+            <Text style={styles.uploadTitle}>Tap to upload or drag & drop</Text>
+            <Text style={styles.uploadSub}>PDF, JPG or PNG (Max 10MB)</Text>
+          </Pressable>
 
-        <View style={styles.uploadBox}>
-          <View style={styles.uploadIconWrap}>
-            <Ionicons name="cloud-upload-outline" size={32} color="#0B1C5A" />
+          {/* License Number Input */}
+          <Text style={styles.label}>PCN License or NAFDAC Registration Number</Text>
+          <View style={styles.inputWrap}>
+            <TextInput
+              value={licenseNumber}
+              onChangeText={setLicenseNumber}
+              placeholder="e.g., PCN/2023/XXXX"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+            />
+            <Ionicons name="id-card-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
           </View>
-          <Text style={styles.uploadTitle}>Tap to Upload File</Text>
-          <Text style={styles.uploadSub}>Supports JPG, PNG, PDF (Max 5MB)</Text>
-        </View>
 
-        <TouchableOpacity 
-          style={styles.cameraBtn}
-          onPress={() => router.push('/(onboarding)/pharmacist/profile-setup' as any)}
-        >
-          <Ionicons name="camera-outline" size={20} color="#0B1C5A" />
-          <Text style={styles.cameraBtnText}>Take a Photo</Text>
-        </TouchableOpacity>
+          {/* NIN Input */}
+          <Text style={styles.label}>NIN card/slip</Text>
+          <View style={styles.inputWrap}>
+            <TextInput
+              value={ninNumber}
+              onChangeText={setNinNumber}
+              placeholder="e.g., 12345678901"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+            />
+            <Ionicons name="id-card-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+          </View>
 
-        <View style={styles.spacer} />
+          {/* Encryption Badge */}
+          <View style={styles.encryptionRow}>
+            <Ionicons name="lock-closed" size={12} color="#0B1C5A" />
+            <Text style={styles.encryptionText}>AES-256 ENCRYPTED</Text>
+          </View>
 
-        <TouchableOpacity 
-          style={styles.btn} 
-          onPress={() => router.push('/(onboarding)/pharmacist/profile-setup' as any)}
-        >
-          <Text style={styles.btnText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Submit Button */}
+          <Pressable
+            onPress={handleSubmit}
+            style={({ pressed }) => [
+              styles.submitBtn,
+              pressed && styles.submitBtnPressed
+            ]}
+          >
+            <View style={styles.btnContent}>
+              <Text style={styles.submitBtnText}>Submit for Review</Text>
+              <Ionicons name="send" size={18} color="#fff" style={{ transform: [{ rotate: '-45deg' }], marginTop: -2 }} />
+            </View>
+          </Pressable>
+
+          {/* Verification Process Info */}
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle-outline" size={24} color="#0284C7" style={{ marginTop: 2 }} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Verification Process</Text>
+              <Text style={styles.infoText}>
+                Reviews typically take 24-48 business hours. You will receive a notification once your status is updated.
+              </Text>
+            </View>
+          </View>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  progressWrap: { flexDirection: 'row', gap: 6 },
-  progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E5E7EB' },
-  progressDotActive: { backgroundColor: '#0B1C5A', width: 24 },
-  content: { flex: 1, paddingHorizontal: 28, paddingTop: 40 },
-  title: { fontSize: 28, fontWeight: '900', color: '#0B1C5A', marginBottom: 12 },
-  subtitle: { fontSize: 15, color: '#6B7280', lineHeight: 24, marginBottom: 36 },
-  uploadBox: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 24, padding: 32, alignItems: 'center', marginBottom: 16 },
-  uploadIconWrap: { width: 64, height: 64, borderRadius: 20, backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  uploadTitle: { fontSize: 16, fontWeight: '800', color: '#0B1C5A', marginBottom: 8 },
-  uploadSub: { fontSize: 13, color: '#8E9CB2', fontWeight: '500' },
-  cameraBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FB', borderRadius: 16, height: 60, gap: 8 },
-  cameraBtnText: { color: '#0B1C5A', fontSize: 15, fontWeight: '800' },
-  spacer: { flex: 1 },
-  btn: { backgroundColor: '#0B1C5A', borderRadius: 16, height: 60, alignItems: 'center', justifyContent: 'center', shadowColor: '#0B1C5A', shadowOpacity: 0.25, shadowRadius: 10, elevation: 5, marginBottom: 16 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#4B5563',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  uploadBox: {
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  uploadIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E0E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  uploadArrow: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#312E81',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#EEF2FF',
+  },
+  uploadTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0B1C5A',
+    marginBottom: 4,
+  },
+  uploadSub: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 15,
+    color: '#111827',
+  },
+  inputIcon: {
+    marginLeft: 10,
+  },
+  encryptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 24,
+  },
+  encryptionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0B1C5A',
+    letterSpacing: 0.5,
+  },
+  submitBtn: {
+    backgroundColor: '#0B1C5A',
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  submitBtnPressed: {
+    opacity: 0.85,
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0284C7',
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 20,
+  },
 });

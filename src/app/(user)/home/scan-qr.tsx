@@ -1,27 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
   Image,
-  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ScanQrScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [showMock, setShowMock] = useState(false);
 
-  // Scanning laser animation
   const laserAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -39,121 +36,112 @@ export default function ScanQrScreen() {
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     ).start();
   }, []);
 
-  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
+  const handleBarCodeScanned = ({
+    type,
+    data,
+  }: {
+    type: string;
+    data: string;
+  }) => {
     if (scanned) return;
     setScanned(true);
-    // Simulate navigation to drug details
     setTimeout(() => {
       router.push({
-        pathname: '/(user)/home/result',
+        pathname: "/(user)/home/result",
         params: { code: data },
       } as any);
     }, 1000);
   };
 
-  // Check if permission is denied or loading and we should fallback to simulated scan
-  const isCameraAvailable = permission && permission.granted && !showMock;
+  const isCameraAvailable = permission && permission.granted;
 
   const translateY = laserAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [10, 250],
+    outputRange: [0, 260],
   });
 
   return (
-    <SafeAreaView className="flex-1 bg-transparent" edges={['top']}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#F4F6FB" }}
+      edges={["top"]}
+    >
       {/* Header */}
-      <View className="px-6 py-4 flex-row justify-between items-center border-b border-gray-100 bg-white">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
-        >
-          <Ionicons name="chevron-back" size={24} color="#0B1C5A" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color="#0B1C5A" />
         </TouchableOpacity>
-        <Text className="text-[20px] font-extrabold text-[#0B1C5A] flex-1 text-center mr-10">
-          MedVerify
-        </Text>
-        
-        {/* User profile icon */}
-        <View className="w-9 h-9 rounded-full border border-gray-200 overflow-hidden absolute right-6">
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=100' }} 
-            className="w-full h-full"
+        <Text style={styles.headerTitle}>MedVerify</Text>
+        <View style={styles.avatar}>
+          <Image
+            source={{
+              uri: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=100",
+            }}
+            style={{ width: "100%", height: "100%" }}
           />
         </View>
       </View>
 
-      <View className="flex-1 px-6 pt-6 items-center">
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 20 }}>
         {/* Title */}
-        <Text className="text-[24px] font-extrabold text-[#0B1C5A] text-center mb-2">
-          Scan Medication
-        </Text>
-        <Text className="text-[14px] text-[#8E9CB2] text-center mb-6 px-4 leading-5">
+        <Text style={styles.title}>Scan Medication</Text>
+        <Text style={styles.subtitle}>
           Align the QR code or barcode within the frame to verify authenticity.
         </Text>
 
-        {/* Camera Preview Box */}
-        <View
-          className="w-[280px] h-[280px] rounded-[32px] overflow-hidden bg-black relative shadow-lg"
-          style={{
-            shadowColor: "#0b1c5a",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.1,
-            shadowRadius: 20,
-            elevation: 10,
-          }}
-        >
+        {/* Camera Box */}
+        <View style={styles.cameraBox}>
           {isCameraAvailable ? (
             <CameraView
               style={StyleSheet.absoluteFill}
               facing="back"
               enableTorch={torchEnabled}
               barcodeScannerSettings={{
-                barcodeTypes: ['qr', 'ean13', 'ean8', 'code128'],
+                barcodeTypes: ["qr", "ean13", "ean8", "code128"],
               }}
               onBarcodeScanned={handleBarCodeScanned}
             />
           ) : (
-            // Simulated Camera Fallback (blister pack medication image)
-            <View className="w-full h-full relative bg-gray-900">
+            <View style={{ flex: 1, backgroundColor: "#1a1a2e" }}>
               <Image
-                source={require('../../../../assets/images/scanner-medication.png')}
-                className="w-full h-full opacity-90"
+                source={require("../../../../assets/images/scanner-medication.png")}
+                style={{ width: "100%", height: "100%", opacity: 0.9 }}
                 resizeMode="cover"
               />
-              
-              {/* Permission prompt overlay if not granted */}
               {(!permission || !permission.granted) && (
-                <View className="absolute inset-0 bg-black/60 items-center justify-center p-4">
-                  <Text className="text-white text-center text-[12px] font-bold mb-3 px-2">
-                    Camera permission is required for live scanning.
+                <View style={styles.permissionOverlay}>
+                  <Text style={styles.permissionText}>
+                    Camera permission required for live scanning.
                   </Text>
                   <TouchableOpacity
                     onPress={requestPermission}
-                    className="bg-[#0B1C5A] px-4 py-2 rounded-xl"
+                    style={styles.grantBtn}
                   >
-                    <Text className="text-white text-[11px] font-extrabold uppercase tracking-wider">
-                      Grant Camera Access
-                    </Text>
+                    <Text style={styles.grantBtnText}>Grant Camera Access</Text>
                   </TouchableOpacity>
-                  
-                  {/* Simulate Scan Button */}
                   <TouchableOpacity
                     onPress={() => {
                       setScanned(true);
                       setTimeout(() => {
                         router.push({
-                          pathname: '/(user)/home/result',
-                          params: { code: 'MOCK_NAFDAC_12345' },
+                          pathname: "/(user)/home/result",
+                          params: { code: "MOCK_NAFDAC_12345" },
                         } as any);
                       }, 1000);
                     }}
-                    className="mt-3"
+                    style={{ marginTop: 10 }}
                   >
-                    <Text className="text-white/60 text-[11px] font-bold underline">
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.6)",
+                        fontSize: 11,
+                        fontWeight: "bold",
+                        textDecorationLine: "underline",
+                      }}
+                    >
                       Simulate verification scan
                     </Text>
                   </TouchableOpacity>
@@ -162,73 +150,109 @@ export default function ScanQrScreen() {
             </View>
           )}
 
-          {/* Scanner Overlay Frame (Brackets) */}
-          <View className="absolute inset-0 pointer-events-none p-8 justify-between">
-            <View className="flex-row justify-between">
-              {/* Top Left Bracket */}
-              <View className="w-8 h-8 border-t-4 border-l-4 border-[#0B1C5A] rounded-tl-lg" />
-              {/* Top Right Bracket */}
-              <View className="w-8 h-8 border-t-4 border-r-4 border-[#0B1C5A] rounded-tr-lg" />
+          {/* Corner Brackets */}
+          <View style={styles.bracketsContainer} pointerEvents="none">
+            {/* Top row */}
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between" }}
+            >
+              <View
+                style={[
+                  styles.corner,
+                  {
+                    borderTopWidth: 3,
+                    borderLeftWidth: 3,
+                    borderTopLeftRadius: 8,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.corner,
+                  {
+                    borderTopWidth: 3,
+                    borderRightWidth: 3,
+                    borderTopRightRadius: 8,
+                  },
+                ]}
+              />
             </View>
-            <View className="flex-row justify-between">
-              {/* Bottom Left Bracket */}
-              <View className="w-8 h-8 border-b-4 border-l-4 border-[#0B1C5A] rounded-bl-lg" />
-              {/* Bottom Right Bracket */}
-              <View className="w-8 h-8 border-b-4 border-r-4 border-[#0B1C5A] rounded-br-lg" />
+            {/* Bottom row */}
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between" }}
+            >
+              <View
+                style={[
+                  styles.corner,
+                  {
+                    borderBottomWidth: 3,
+                    borderLeftWidth: 3,
+                    borderBottomLeftRadius: 8,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.corner,
+                  {
+                    borderBottomWidth: 3,
+                    borderRightWidth: 3,
+                    borderBottomRightRadius: 8,
+                  },
+                ]}
+              />
             </View>
           </View>
 
-          {/* Animated Laser Line */}
+          {/* Laser Line */}
           <Animated.View
-            style={[
-              styles.laserLine,
-              { transform: [{ translateY }] }
-            ]}
+            style={[styles.laserLine, { transform: [{ translateY }] }]}
           />
 
-          {/* Torch/Flashlight Toggle Button */}
+          {/* Torch Button */}
           <TouchableOpacity
             onPress={() => setTorchEnabled(!torchEnabled)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/80 border border-white/50 items-center justify-center shadow-sm"
+            style={styles.torchBtn}
           >
             <Ionicons
-              name={torchEnabled ? "flash" : "flash-off"}
-              size={18}
+              name={torchEnabled ? "flash" : "flashlight-outline"}
+              size={20}
               color="#0B1C5A"
             />
           </TouchableOpacity>
         </View>
 
-        {/* Action Buttons Grid */}
-        <View className="flex-row gap-4 w-full mt-8">
-          {/* Take Photo */}
+        {/* Action Buttons */}
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            onPress={() => router.push('/(user)/home/scan-image' as any)}
-            className="flex-1 bg-white border border-white/80 rounded-2xl py-4 flex-row items-center justify-center gap-2 shadow-sm"
+            onPress={() => router.push("/(user)/home/scan-image" as any)}
+            style={styles.actionCard}
           >
-            <Ionicons name="camera-outline" size={18} color="#0B1C5A" />
-            <Text className="text-[#0B1C5A] text-[13px] font-bold">
-              Take Photo
-            </Text>
+            <View style={[styles.actionIcon, { backgroundColor: "#EEF1FB" }]}>
+              <Ionicons name="camera-outline" size={22} color="#0B1C5A" />
+            </View>
+            <Text style={styles.actionLabel}>Take Photo</Text>
           </TouchableOpacity>
 
-          {/* Enter NAFDAC */}
           <TouchableOpacity
-            onPress={() => router.push('/(user)/home/scan-manual' as any)}
-            className="flex-1 bg-white border border-white/80 rounded-2xl py-4 flex-row items-center justify-center gap-2 shadow-sm"
+            onPress={() => router.push("/(user)/home/scan-manual" as any)}
+            style={styles.actionCard}
           >
-            <Ionicons name="keypad-outline" size={18} color="#0B1C5A" />
-            <Text className="text-[#0B1C5A] text-[13px] font-bold">
-              Enter NAFDAC
-            </Text>
+            <View style={[styles.actionIcon, { backgroundColor: "#E0F7FA" }]}>
+              <Ionicons name="keypad-outline" size={22} color="#0B1C5A" />
+            </View>
+            <Text style={styles.actionLabel}>Enter NAFDAC</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Verification Status Pill */}
-        <View className="w-full mt-8 bg-white border border-[#E8F5E9] rounded-2xl p-4 flex-row items-center gap-3 shadow-sm">
-          <Ionicons name="checkmark-circle" size={22} color="#2E7D32" />
-          <Text className="text-[#0B1C5A] text-[13px] font-semibold flex-1">
-            Last verified: <Text className="font-extrabold text-[#2E7D32]">Paracetamol BP 500mg</Text>
+        {/* Last Verified Pill */}
+        <View style={styles.verifiedPill}>
+          <Ionicons name="checkbox" size={20} color="#10B981" />
+          <Text style={styles.verifiedText}>
+            Last verified:{" "}
+            <Text style={{ fontWeight: "700", color: "#374151" }}>
+              Paracetamol BP 500mg
+            </Text>
           </Text>
         </View>
       </View>
@@ -237,16 +261,189 @@ export default function ScanQrScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0B1C5A",
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#0B1C5A",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#8E9CB2",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+    paddingHorizontal: 10,
+  },
+  cameraBox: {
+    width: "100%",
+    height: 300,
+    borderRadius: 28,
+    overflow: "hidden",
+    backgroundColor: "#000",
+    position: "relative",
+    shadowColor: "#0b1c5a",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  bracketsContainer: {
+    position: "absolute",
+    top: 24,
+    left: 24,
+    right: 24,
+    bottom: 24,
+    justifyContent: "space-between",
+  },
+  corner: {
+    width: 28,
+    height: 28,
+    borderColor: "#0B1C5A",
+  },
   laserLine: {
-    position: 'absolute',
-    left: '12%',
-    right: '12%',
-    height: 3,
-    backgroundColor: '#00D2FF',
+    position: "absolute",
+    left: "15%",
+    right: "15%",
+    height: 2,
+    backgroundColor: "#00D2FF",
     borderRadius: 1,
-    shadowColor: '#00D2FF',
+    shadowColor: "#00D2FF",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+  },
+  torchBtn: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  actionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0B1C5A",
+  },
+  verifiedPill: {
+    marginTop: 16,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  verifiedText: {
+    fontSize: 13,
+    color: "#4B5563",
+    marginLeft: 8,
+  },
+  permissionOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  permissionText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  grantBtn: {
+    backgroundColor: "#0B1C5A",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  grantBtnText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
 });

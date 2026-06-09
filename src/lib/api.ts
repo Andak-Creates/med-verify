@@ -9,7 +9,7 @@ import { getToken } from './tokenStorage';
 // needs the LAN IP to reach the developer's machine over the network.
 export const API_BASE_URL = Platform.OS === 'web'
   ? 'http://localhost:4000'
-  : 'http://192.168.100.249:4000';
+  : 'http://192.168.1.7:4000';
 
 export const TOKEN_STORAGE_KEY = 'medverify_token';
 

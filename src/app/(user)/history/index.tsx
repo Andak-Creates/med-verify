@@ -50,25 +50,16 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      setLoading(true);
-      setError(null);
-      getScanHistory({ limit: 50 })
-        .then(({ items: fetched, stats: fetchedStats }) => {
-          if (cancelled) return;
-          setItems(fetched);
-          setStats(fetchedStats);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setError(getApiErrorMessage(err, "Could not load your scan history."));
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
-      return () => {
-        cancelled = true;
-      };
+      // Mock data — backend is disconnected during UI dev
+      setLoading(false);
+      setItems([
+        { id: '1', nafdacNumber: 'A4-0084', drugName: 'Paracetamol BP 500mg', status: 'verified', scannedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), manufacturer: 'GlaxoSmithKline', strength: '500mg', category: 'Analgesic' },
+        { id: '2', nafdacNumber: 'B7-2291', drugName: 'Amoxicillin 250mg', status: 'not_found', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), manufacturer: null, strength: null, category: null },
+        { id: '3', nafdacNumber: 'C2-0451', drugName: 'Lisinopril 10mg', status: 'verified', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), manufacturer: 'Pfizer', strength: '10mg', category: 'Antihypertensive' },
+        { id: '4', nafdacNumber: 'D9-1187', drugName: 'Metformin 500mg', status: 'flagged', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 50).toISOString(), manufacturer: 'Emzor', strength: '500mg', category: 'Antidiabetic' },
+        { id: '5', nafdacNumber: 'A1-0020', drugName: 'Ibuprofen 400mg', status: 'verified', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), manufacturer: 'Sterling', strength: '400mg', category: 'NSAID' },
+      ]);
+      setStats({ totalScans: 5, authenticityRate: 60 });
     }, [])
   );
 

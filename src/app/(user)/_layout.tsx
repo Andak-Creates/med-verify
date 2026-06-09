@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Layout() {
@@ -17,47 +16,84 @@ export default function Layout() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" color="#0B1C5A" />
       </View>
     );
   }
 
   if (!isAuthenticated) {
-    return <Redirect href={'/(onboarding)/splash' as any} />;
+    return <Redirect href={"/(onboarding)/splash" as any} />;
   }
 
-  if (user?.role === 'PHARMACIST') {
-    return <Redirect href={'/(pharmacist)/dashboard' as any} />;
+  if (user?.role === "PHARMACIST") {
+    return <Redirect href={"/(pharmacist)/dashboard" as any} />;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-      <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255, 255, 255, 0.4)' }]} />
+    <View style={{ flex: 1, backgroundColor: "transparent" }}>
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
-        screenOptions={{ 
+        screenOptions={{
           headerShown: false,
-          sceneContainerStyle: { backgroundColor: 'transparent' }
         }}
       >
-        <Tabs.Screen name="home/index"     options={{ title: "HOME" }} />
-        <Tabs.Screen name="history/index"  options={{ title: "HISTORY" }} />
-        <Tabs.Screen name="ai-chat/index"  options={{ title: "AI CHAT" }} />
+        <Tabs.Screen name="home/index" options={{ title: "HOME" }} />
+        <Tabs.Screen name="history/index" options={{ title: "HISTORY" }} />
+        <Tabs.Screen name="ai-chat/index" options={{ title: "AI CHAT" }} />
         <Tabs.Screen name="pharmacy/index" options={{ title: "PHARMACY" }} />
-        <Tabs.Screen name="account/index"  options={{ title: "ACCOUNT" }} />
+        <Tabs.Screen name="account/index" options={{ title: "ACCOUNT" }} />
+        {/* Hidden screens */}
+        <Tabs.Screen
+          name="pharmacy/consultation-call"
+          options={{ href: null }}
+        />
+        <Tabs.Screen name="pharmacy/[id]" options={{ href: null }} />
+        <Tabs.Screen
+          name="pharmacy/book-consultation"
+          options={{ href: null }}
+        />
+        <Tabs.Screen name="pharmacy/booking-confirm" options={{ href: null }} />
+        <Tabs.Screen
+          name="pharmacy/consultation-live"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="pharmacy/pharmacist-profile"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="pharmacy/pharmacy-profile"
+          options={{ href: null }}
+        />
+        <Tabs.Screen name="account/notifications" options={{ href: null }} />
+        <Tabs.Screen name="account/subscription" options={{ href: null }} />
+        <Tabs.Screen name="account/paywall" options={{ href: null }} />
+        <Tabs.Screen name="account/delete-account" options={{ href: null }} />
+        <Tabs.Screen name="home/drug-details" options={{ href: null }} />
+        <Tabs.Screen name="home/report" options={{ href: null }} />
+        <Tabs.Screen name="home/report-confirm" options={{ href: null }} />
+        <Tabs.Screen name="home/result" options={{ href: null }} />
+        <Tabs.Screen name="home/scan-image" options={{ href: null }} />
+        <Tabs.Screen name="home/scan-loading" options={{ href: null }} />
+        <Tabs.Screen name="home/scan-manual" options={{ href: null }} />
+        <Tabs.Screen name="home/scan-qr" options={{ href: null }} />
+        <Tabs.Screen name="ai-chat/chat" options={{ href: null }} />
+        <Tabs.Screen name="ai-chat/name-assistant" options={{ href: null }} />
       </Tabs>
     </View>
   );
 }
 
 function getIcon(routeName: string, focused: boolean): string {
-  if (routeName.includes("home"))     return focused ? "home"           : "home-outline";
-  if (routeName.includes("history"))  return focused ? "time"           : "time-outline";
-  if (routeName.includes("ai-chat"))  return focused ? "sparkles"       : "sparkles-outline";
-  if (routeName.includes("pharmacy")) return focused ? "location"       : "location-outline";
-  if (routeName.includes("account"))  return focused ? "person-circle"  : "person-circle-outline";
+  if (routeName.includes("home")) return focused ? "home" : "home-outline";
+  if (routeName.includes("history")) return focused ? "time" : "time-outline";
+  if (routeName.includes("ai-chat"))
+    return focused ? "sparkles" : "sparkles-outline";
+  if (routeName.includes("pharmacy"))
+    return focused ? "location" : "location-outline";
+  if (routeName.includes("account"))
+    return focused ? "person-circle" : "person-circle-outline";
   return "ellipse-outline";
 }
 
@@ -68,13 +104,15 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const bottomPad = Platform.OS === "ios" ? insets.bottom + 4 : 12;
 
   const mainTabs = [
-    "home/index", 
-    "history/index", 
-    "ai-chat/index", 
-    "pharmacy/index", 
-    "account/index"
+    "home/index",
+    "history/index",
+    "ai-chat/index",
+    "pharmacy/index",
+    "account/index",
   ];
-  const visibleRoutes = state.routes.filter((r: any) => mainTabs.includes(r.name));
+  const visibleRoutes = state.routes.filter((r: any) =>
+    mainTabs.includes(r.name),
+  );
 
   return (
     // Outer container provides transparent space for the button to float into
@@ -83,7 +121,9 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         {visibleRoutes.map((route: any) => {
           const { options } = descriptors[route.key];
           const label: string = options.title ?? route.name;
-          const focused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
+          const focused =
+            state.index ===
+            state.routes.findIndex((r: any) => r.key === route.key);
 
           const onPress = () => {
             const event = navigation.emit({
@@ -105,10 +145,17 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                   onPress={onPress}
                   style={styles.floatingButtonWrap}
                 >
-                  <View style={[styles.aiButton, focused && styles.aiButtonFocused]}>
+                  <View
+                    style={[styles.aiButton, focused && styles.aiButtonFocused]}
+                  >
                     <Ionicons name="sparkles" size={26} color="#fff" />
                   </View>
-                  <Text style={[styles.label, { color: focused ? NAVY : GRAY, marginTop: 42 }]}>
+                  <Text
+                    style={[
+                      styles.label,
+                      { color: focused ? NAVY : GRAY, marginTop: 42 },
+                    ]}
+                  >
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -143,11 +190,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     // We add padding top so the floating button isn't clipped by parents
     paddingTop: 30,
     // Ensures touches outside bounds register (especially on iOS)
@@ -172,10 +219,10 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   floatingButtonWrap: {
-    position: 'absolute',
+    position: "absolute",
     top: -24, // Lifts the button clearly out of the bar
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 100,
   },
   aiButton: {
@@ -185,7 +232,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B1C5A",
     alignItems: "center",
     justifyContent: "center",
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     shadowColor: "#0B1C5A",
     shadowOffset: { width: 0, height: 6 },
@@ -204,7 +251,7 @@ const styles = StyleSheet.create({
   },
   activeLine: {
     position: "absolute",
-    bottom: -8, 
+    bottom: -8,
     width: 20,
     height: 3,
     borderRadius: 2,

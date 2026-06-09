@@ -1,86 +1,167 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function VerificationPendingScreen() {
   const router = useRouter();
+  const { devLogin } = useAuth();
+
+  // For testing purposes, we'll allow navigation to the dashboard
+  const handleSupport = () => {
+    router.replace('/(pharmacist)/dashboard' as any);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="time" size={60} color="#E5A800" />
+      <View style={styles.card}>
+        <View style={styles.iconContainer}>
+          <View style={styles.iconOutline}>
+            <Ionicons name="shield-checkmark" size={48} color="#0369A1" />
+          </View>
         </View>
-        
-        <Text style={styles.title}>Verification Pending</Text>
+
+        <Text style={styles.title}>Verification in Progress</Text>
         <Text style={styles.subtitle}>
-          Thank you for applying. We are currently verifying your Pharmacist practicing license with the relevant authorities.
+          Your credentials are being reviewed by our medical board. This typically takes 24-48 hours.
         </Text>
 
-        <View style={styles.timeline}>
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIcon}>
-              <Ionicons name="checkmark" size={16} color="#fff" />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Profile Created</Text>
-              <Text style={styles.timelineSub}>Your details are saved.</Text>
-            </View>
-          </View>
-          
-          <View style={styles.timelineLine} />
-
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineIcon, { backgroundColor: '#E5A800' }]}>
-              <Ionicons name="hourglass" size={14} color="#fff" />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>In Review</Text>
-              <Text style={styles.timelineSub}>Usually takes 1-2 business days.</Text>
-            </View>
-          </View>
-
-          <View style={[styles.timelineLine, { backgroundColor: '#F3F4F6' }]} />
-
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineIcon, { backgroundColor: '#E5E7EB' }]} />
-            <View style={styles.timelineContent}>
-              <Text style={[styles.timelineTitle, { color: '#8E9CB2' }]}>Approved</Text>
-              <Text style={styles.timelineSub}>You will be notified via email.</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.spacer} />
-
-        <TouchableOpacity 
-          style={styles.btnOutline} 
-          onPress={() => router.replace('/(pharmacist)/dashboard' as any)}
+        <Pressable
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            pressed && styles.btnPressed
+          ]}
+          onPress={handleSupport}
         >
-          <Text style={styles.btnOutlineText}>Preview Dashboard</Text>
-        </TouchableOpacity>
+          <Ionicons name="help-circle-outline" size={20} color="#fff" />
+          <Text style={styles.primaryBtnText}>Contact Support</Text>
+        </Pressable>
+
+        {/* Development Bypass Button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            { backgroundColor: '#0369A1', marginTop: -12 },
+            pressed && styles.btnPressed
+          ]}
+          onPress={async () => {
+            await devLogin("PHARMACIST");
+            router.replace('/(pharmacist)/dashboard' as any);
+          }}
+        >
+          <Ionicons name="code-working-outline" size={20} color="#fff" />
+          <Text style={styles.primaryBtnText}>Bypass Verification (Dev)</Text>
+        </Pressable>
+
+        <Pressable style={styles.linkBtn}>
+          <Text style={styles.linkText}>Read Guidelines</Text>
+          <Ionicons name="open-outline" size={16} color="#0369A1" />
+        </Pressable>
+
+        <View style={styles.divider} />
+
+        <View style={styles.referenceRow}>
+          <Ionicons name="time-outline" size={14} color="#8E9CB2" />
+          <Text style={styles.referenceText}>REFERENCE ID: MV-8829-PH</Text>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
-  content: { flex: 1, paddingHorizontal: 28, paddingTop: 60 },
-  iconWrap: { width: 100, height: 100, borderRadius: 32, backgroundColor: '#FFFBEB', alignItems: 'center', justifyContent: 'center', marginBottom: 32, shadowColor: '#E5A800', shadowOpacity: 0.15, shadowRadius: 15, elevation: 5 },
-  title: { fontSize: 32, fontWeight: '900', color: '#0B1C5A', marginBottom: 12 },
-  subtitle: { fontSize: 16, color: '#6B7280', lineHeight: 24, marginBottom: 40 },
-  
-  timeline: { paddingLeft: 10 },
-  timelineItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
-  timelineIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
-  timelineContent: { flex: 1, paddingTop: 2 },
-  timelineTitle: { fontSize: 16, fontWeight: '800', color: '#0B1C5A', marginBottom: 4 },
-  timelineSub: { fontSize: 13, color: '#6B7280' },
-  timelineLine: { width: 2, height: 32, backgroundColor: '#0B1C5A', marginLeft: 13, marginVertical: 4 },
-
-  spacer: { flex: 1 },
-  btnOutline: { borderWidth: 2, borderColor: '#0B1C5A', borderRadius: 16, height: 60, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  btnOutlineText: { color: '#0B1C5A', fontSize: 16, fontWeight: '800' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  card: {
+    backgroundColor: '#fff',
+    width: '100%',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
+  },
+  iconContainer: {
+    marginBottom: 24,
+  },
+  iconOutline: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#E0F2FE',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#4B5563',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 40,
+  },
+  primaryBtn: {
+    width: '100%',
+    height: 56,
+    backgroundColor: '#111827',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 24,
+  },
+  btnPressed: {
+    opacity: 0.85,
+  },
+  primaryBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  linkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 32,
+  },
+  linkText: {
+    color: '#0369A1',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 24,
+  },
+  referenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  referenceText: {
+    color: '#8E9CB2',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
 });

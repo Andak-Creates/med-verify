@@ -139,7 +139,7 @@ export default function PharmacyScreen() {
                       </View>
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.viewBtn}>
+                  <TouchableOpacity style={styles.viewBtn} onPress={() => router.push('/(user)/pharmacy/pharmacy-profile' as any)}>
                     <Text style={styles.viewBtnText}>View</Text>
                   </TouchableOpacity>
                 </View>
@@ -177,7 +177,7 @@ export default function PharmacyScreen() {
                       </View>
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.viewBtn}>
+                  <TouchableOpacity style={styles.viewBtn} onPress={() => router.push('/(user)/pharmacy/pharmacy-profile' as any)}>
                     <Text style={styles.viewBtnText}>View</Text>
                   </TouchableOpacity>
                 </View>
