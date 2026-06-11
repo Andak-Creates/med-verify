@@ -56,6 +56,11 @@ interface AuthContextValue {
     type: string;
   }) => Promise<MedVerifyUser>;
   devLogin: (role: "USER" | "PHARMACIST") => Promise<void>;
+  isPro: boolean;
+  scanCount: number;
+  incrementScanCount: () => void;
+  subscribeToPro: () => void;
+  unsubscribeFromPro: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -72,6 +77,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MedVerifyUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPro, setIsPro] = useState(true);
+  const [scanCount, setScanCount] = useState(0);
+
+  const incrementScanCount = () => {
+    setScanCount((c) => c + 1);
+  };
+
+  const subscribeToPro = () => {
+    setIsPro(true);
+  };
+
+  const unsubscribeFromPro = () => {
+    setIsPro(false);
+  };
 
   useEffect(() => {
     // DISCONNECTED FROM BACKEND FOR UI DEVELOPMENT
@@ -231,8 +250,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       uploadAvatar,
       devLogin,
+      isPro,
+      scanCount,
+      incrementScanCount,
+      subscribeToPro,
+      unsubscribeFromPro,
     }),
-    [user, token, isLoading],
+    [user, token, isLoading, isPro, scanCount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

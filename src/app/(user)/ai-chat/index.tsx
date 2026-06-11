@@ -25,7 +25,7 @@ export default function AiChatIntroScreen() {
   const colorOptions = ["FFDBB4", "EDB98A", "D08B5B", "AE5D29", "392211"];
 
   // DiceBear Avataaars - customized for a friendly, professional look
-  const avatarSeed = selectedAvatar === "female" ? "Mia" : "Oliver";
+  const avatarSeed = selectedAvatar === "female" ? "Jasmine" : "Oliver";
   const avatarUrl = `https://api.dicebear.com/7.x/avataaars/png?seed=${avatarSeed}&skinColor=${selectedSkinTone}&backgroundColor=e2e8f0&mouth=smile&eyes=happy&clothing=blazerAndShirt`;
 
   const handleStart = () => {

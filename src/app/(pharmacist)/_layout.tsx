@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ImageBackground, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 
@@ -26,12 +27,23 @@ export default function PharmacistLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+    <View style={{ flex: 1 }}>
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
+        screenLayout={({ children }) => (
+          <View style={{ flex: 1 }}>
+            <ImageBackground
+              source={require('../../../assets/images/background.png')}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.25)' }]} />
+            {children}
+          </View>
+        )}
         screenOptions={{
           headerShown: false,
-          sceneContainerStyle: { backgroundColor: 'transparent' }
         }}
       >
         <Tabs.Screen name="dashboard/index" options={{ title: "DASHBOARD" }} />

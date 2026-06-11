@@ -1,10 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const { subscribeToPro } = useAuth();
+
+  const handleSubscribe = () => {
+    subscribeToPro();
+    Alert.alert("Success", "You are now on the Pro Plan! Enjoy unlimited features.");
+    router.back();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -36,7 +44,7 @@ export default function PaywallScreen() {
           <Text style={styles.planPrice}>$4.99<Text style={styles.planPeriod}> / month</Text></Text>
         </View>
 
-        <TouchableOpacity style={styles.btn}>
+        <TouchableOpacity style={styles.btn} onPress={handleSubscribe}>
           <Text style={styles.btnText}>Start 7-Day Free Trial</Text>
         </TouchableOpacity>
         <Text style={styles.footerText}>Cancel anytime. Terms & Conditions apply.</Text>

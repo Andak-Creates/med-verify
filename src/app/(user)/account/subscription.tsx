@@ -2,9 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function SubscriptionScreen() {
   const router = useRouter();
+  const { isPro, unsubscribeFromPro } = useAuth();
+
+  const handleManage = () => {
+    if (isPro) {
+      unsubscribeFromPro();
+    } else {
+      router.push('/(user)/account/paywall' as any);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -18,11 +28,17 @@ export default function SubscriptionScreen() {
 
       <View style={styles.content}>
         <View style={styles.card}>
-          <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>✦ PRO MEMBER</Text>
-          </View>
-          <Text style={styles.title}>You are on the Pro Plan</Text>
-          <Text style={styles.subtitle}>Your subscription will automatically renew on Oct 24, 2026.</Text>
+          {isPro ? (
+            <View style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>✦ PRO MEMBER</Text>
+            </View>
+          ) : (
+            <View style={[styles.proBadge, { backgroundColor: '#6B7280' }]}>
+              <Text style={styles.proBadgeText}>BASIC PLAN</Text>
+            </View>
+          )}
+          <Text style={styles.title}>{isPro ? "You are on the Pro Plan" : "You are on the Basic Plan"}</Text>
+          <Text style={styles.subtitle}>{isPro ? "Your subscription will automatically renew on Oct 24, 2026." : "Upgrade to Pro to unlock unlimited features."}</Text>
           
           <View style={styles.divider} />
           
@@ -40,8 +56,8 @@ export default function SubscriptionScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.btnOutline}>
-          <Text style={styles.btnOutlineText}>Manage Subscription</Text>
+        <TouchableOpacity style={styles.btnOutline} onPress={handleManage}>
+          <Text style={styles.btnOutlineText}>{isPro ? "Cancel Subscription" : "Upgrade to Pro"}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

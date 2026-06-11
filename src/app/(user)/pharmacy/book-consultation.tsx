@@ -33,11 +33,7 @@ const DAYS = Array.from({ length: 7 }, (_, i) => {
 const MORNING_SLOTS = ['09:00 AM', '09:30 AM', '10:45 AM'];
 const AFTERNOON_SLOTS = ['02:00 PM', '03:30 PM', '04:15 PM'];
 
-const CONSULT_TYPES = [
-  { id: 'chat', icon: 'chatbubble-outline', label: 'Text Chat', sub: 'Instant text-based advice', price: '₦3,000' },
-  { id: 'audio', icon: 'call-outline', label: 'Audio Call', sub: 'Direct professional call', price: '₦5,000' },
-  { id: 'both', icon: 'headset-outline', label: 'Call & Chat', sub: 'Talk and text simultaneously', price: '₦7,000' },
-];
+const DEFAULT_TYPE = 'both';
 
 // Doctor data keyed by pharmacyId / id param
 const DOCTORS: Record<string, { name: string; title: string; rating: number; consults: string; image: string }> = {
@@ -52,23 +48,25 @@ export default function BookConsultationScreen() {
 
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [selectedTime, setSelectedTime] = useState('02:00 PM');
-  const [selectedType, setSelectedType] = useState('chat');
   const [reason, setReason] = useState('');
   const [urgency, setUrgency] = useState<'normal' | 'high'>('normal');
-  const canBook = selectedTime && selectedType && reason.trim().length >= 10;
+  const canBook = selectedTime && reason.trim().length >= 10;
+  
+  const currentPrice = urgency === 'high' ? '₦7,500' : '₦5,000';
 
 
   const handleBook = () => {
     router.push({
       pathname: '/(user)/pharmacy/booking-confirm',
       params: {
-        type: selectedType,
+        type: DEFAULT_TYPE,
         day: DAYS[selectedDayIdx].label + ' ' + DAYS[selectedDayIdx].num,
         time: selectedTime,
         doctorName: doctor.name,
         doctorImage: doctor.image,
         reason,
         urgency,
+        price: currentPrice,
       },
     } as any);
   };
@@ -172,33 +170,18 @@ export default function BookConsultationScreen() {
             ))}
           </View>
 
-          {/* Consultation Type */}
-          <Text style={styles.sectionTitle}>Consultation Type</Text>
-          <View style={styles.typeRow}>
-            {CONSULT_TYPES.map(type => {
-              const active = selectedType === type.id;
-              return (
-                <TouchableOpacity
-                  key={type.id}
-                  onPress={() => setSelectedType(type.id)}
-                  style={[styles.typeCard, active && styles.typeCardActive]}
-                >
-                  <View style={[styles.typeIconBox, active && styles.typeIconBoxActive]}>
-                    <Ionicons name={type.icon as any} size={22} color={active ? BRAND : '#6B7280'} />
-                  </View>
-                  <Text style={[styles.typeLabel, active && styles.typeLabelActive]}>{type.label}</Text>
-                  <Text style={styles.typeSub}>{type.sub}</Text>
-                  <View style={styles.typePriceRow}>
-                    <Text style={[styles.typePrice, active && styles.typePriceActive]}>{type.price}</Text>
-                    {active && <View style={styles.typeCheck}><Ionicons name="checkmark" size={12} color="#fff" /></View>}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+          {/* Session Type Info */}
+          <Text style={styles.sectionTitle}>Session Mode</Text>
+          <View style={[styles.typeCard, styles.typeCardActive, { marginBottom: 24 }]}>
+            <View style={[styles.typeIconBox, styles.typeIconBoxActive]}>
+              <Ionicons name="headset-outline" size={22} color={BRAND} />
+            </View>
+            <Text style={[styles.typeLabel, styles.typeLabelActive]}>Call & Chat</Text>
+            <Text style={styles.typeSub}>This session automatically includes both Text Chat and Direct Call options.</Text>
           </View>
 
           {/* Urgency Level */}
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Urgency Level</Text>
+          <Text style={styles.sectionTitle}>Urgency Level</Text>
           <View style={styles.urgencyRow}>
             <TouchableOpacity
               style={[styles.urgencyPill, urgency === 'normal' && styles.urgencyPillActive]}
@@ -247,9 +230,9 @@ export default function BookConsultationScreen() {
             })}
           >
             <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-              {selectedType === 'chat' ? 'Book Chat Session' : selectedType === 'audio' ? 'Book Audio Call' : 'Book Call & Chat'}
+              Book Session • {currentPrice}
             </Text>
-            <Ionicons name="calendar-outline" size={20} color="#fff" />
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
           </Pressable>
         </View>
       </ScrollView>

@@ -21,19 +21,6 @@ export default function RootLayout() {
           style={{ flex: 1 }}
           resizeMode="cover"
         >
-          <BlurView
-            intensity={70}
-            tint="light"
-            style={StyleSheet.absoluteFill}
-          />
-          {/* Fallback extra white overlay to ensure content is readable */}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(255,255,255,0.4)" },
-            ]}
-          />
-
           <Stack
             screenOptions={{
               contentStyle: { backgroundColor: "transparent" },

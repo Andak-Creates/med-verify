@@ -118,7 +118,7 @@ export default function AiChatScreen() {
   const assistantName = name || "Medy AI";
   const avatarGender = avatar === "male" ? "male" : "female";
   const tone = skinTone || "EDB98A";
-  const avatarSeed = avatarGender === "female" ? "Mia" : "Oliver";
+  const avatarSeed = avatarGender === "female" ? "Jasmine" : "Oliver";
   const avatarUrl = `https://api.dicebear.com/7.x/avataaars/png?seed=${avatarSeed}&skinColor=${tone}&backgroundColor=e2e8f0&mouth=smile&eyes=happy&clothing=blazerAndShirt`;
 
   const BRAND_COLOR = "#0B1C5A";
@@ -309,7 +309,7 @@ export default function AiChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FF" },
+  container: { flex: 1, backgroundColor: "transparent" },
 
   /* Header */
   header: {
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.92)",
     borderBottomWidth: 1,
     borderBottomColor: "#F1F3F9",
     gap: 10,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   inputBar: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.92)",
     borderTopWidth: 1,
     borderTopColor: "#F1F3F9",
   },

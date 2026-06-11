@@ -1,9 +1,10 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -22,7 +23,7 @@ function now() {
 }
 
 const INITIAL: Msg[] = [
-  { id: '0', role: 'pharmacist', text: "Hello! I'm Pharm. Dr. Adaeze Okafor. How can I help you today?", time: now() },
+  { id: '0', role: 'pharmacist', text: "Hello! I'm Pharm. Dr. Adaeze Okafor. I can see your booking details. How can I help you today?", time: now() },
 ];
 
 export default function ConsultationLiveScreen() {
@@ -33,6 +34,9 @@ export default function ConsultationLiveScreen() {
   const [elapsed, setElapsed] = useState(0);
   const flatRef = useRef<FlatList>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Professional Pharmacist Photo
+  const pharmAvatar = "https://images.unsplash.com/photo-1594824436998-dd40e4f3a763?w=200&q=80";
 
   // Timer
   useEffect(() => {
@@ -79,11 +83,25 @@ export default function ConsultationLiveScreen() {
   const renderMsg = ({ item }: { item: Msg }) => {
     const isUser = item.role === 'user';
     return (
-      <View style={{ alignItems: isUser ? 'flex-end' : 'flex-start', marginBottom: 12, paddingHorizontal: 16 }}>
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubblePharmacist]}>
-          <Text style={{ color: isUser ? '#fff' : '#111827', fontSize: 14, lineHeight: 20 }}>{item.text}</Text>
+      <View style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowPharm]}>
+        {!isUser && (
+          <Image source={{ uri: pharmAvatar }} style={styles.msgAvatar} />
+        )}
+        <View style={styles.bubbleCol}>
+          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubblePharm]}>
+            <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextPharm]}>
+              {item.text}
+            </Text>
+          </View>
+          <Text style={[styles.timeLabel, { textAlign: isUser ? 'right' : 'left' }]}>
+            {item.time}
+          </Text>
         </View>
-        <Text style={styles.timeLabel}>{item.time}</Text>
+        {isUser && (
+          <View style={styles.userAvatarPlaceholder}>
+            <Ionicons name="person" size={18} color="#fff" />
+          </View>
+        )}
       </View>
     );
   };
@@ -93,20 +111,26 @@ export default function ConsultationLiveScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={20} color="#fff" />
-          </View>
+          <Image source={{ uri: pharmAvatar }} style={styles.headerAvatar} />
           <View>
-            <Text style={styles.pharmName}>Pharm. Dr. Adaeze Okafor</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Text style={styles.pharmName}>Dr. Adaeze Okafor</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
               <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={styles.liveLabel}>Live Â· {fmt}</Text>
+              <Text style={styles.liveLabel}>Live Session • {fmt}</Text>
             </View>
           </View>
         </View>
-        <TouchableOpacity onPress={() => router.replace('/(user)/pharmacy' as any)} style={styles.endBtn}>
-          <Text style={styles.endBtnText}>End</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={() => router.push('/(user)/pharmacy/consultation-call' as any)} style={styles.actionBtn}>
+            <Ionicons name="call" size={18} color="#0B1C5A" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(user)/pharmacy/consultation-call' as any)} style={styles.actionBtn}>
+            <Ionicons name="videocam" size={18} color="#0B1C5A" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace('/(user)/pharmacy' as any)} style={styles.endBtn}>
+            <Text style={styles.endBtnText}>End</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
@@ -115,13 +139,14 @@ export default function ConsultationLiveScreen() {
           data={msgs}
           keyExtractor={i => i.id}
           renderItem={renderMsg}
-          contentContainerStyle={{ paddingVertical: 12 }}
+          contentContainerStyle={styles.messageList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: false })}
           ListFooterComponent={typing ? (
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-              <View style={[styles.bubble, styles.bubblePharmacist]}>
-                <View style={{ flexDirection: 'row', gap: 5 }}>
+            <View style={[styles.messageRow, styles.messageRowPharm]}>
+              <Image source={{ uri: pharmAvatar }} style={styles.msgAvatar} />
+              <View style={[styles.bubble, styles.bubblePharm, { paddingVertical: 14, paddingHorizontal: 16 }]}>
+                <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
                   {[0,1,2].map(i => <View key={i} style={[styles.typingDot, { opacity: 0.4 + i * 0.2 }]} />)}
                 </View>
               </View>
@@ -131,17 +156,23 @@ export default function ConsultationLiveScreen() {
 
         {/* Input */}
         <View style={styles.inputBar}>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type a messageâ€¦"
-            placeholderTextColor="#9CA3AF"
-            multiline
-            style={styles.textInput}
-          />
-          <Pressable onPress={send} disabled={!input.trim()} style={[styles.sendBtn, !input.trim() && { backgroundColor: '#E5E7EB' }]}>
-            <Ionicons name="arrow-up" size={20} color={input.trim() ? '#fff' : '#9CA3AF'} />
-          </Pressable>
+          <View style={styles.inputWrap}>
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder="Type your message..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              style={styles.textInput}
+            />
+            <Pressable 
+              onPress={send} 
+              disabled={!input.trim()} 
+              style={[styles.sendBtn, !input.trim() && { backgroundColor: '#E5E7EB' }]}
+            >
+              <Ionicons name="send" size={16} color={input.trim() ? '#fff' : '#9CA3AF'} />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -153,30 +184,45 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    backgroundColor: 'rgba(255,255,255,0.92)', borderBottomWidth: 1, borderBottomColor: '#F1F3F9',
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center' },
-  pharmName: { fontSize: 14, fontWeight: '800', color: '#0B1C5A' },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#16a34a' },
-  liveLabel: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
-  endBtn: { backgroundColor: '#FEF2F2', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#FECACA' },
-  endBtnText: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
-  bubble: { maxWidth: '82%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  headerAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#E2E8F0' },
+  pharmName: { fontSize: 16, fontWeight: '800', color: '#0B1C5A' },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' },
+  liveLabel: { fontSize: 12, color: '#ef4444', fontWeight: '700' },
+  endBtn: { backgroundColor: '#FEF2F2', borderRadius: 14, paddingHorizontal: 16, height: 38, alignItems: 'center', justifyContent: 'center' },
+  endBtnText: { color: '#dc2626', fontWeight: '800', fontSize: 13 },
+  actionBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center' },
+  
+  messageList: { paddingHorizontal: 16, paddingVertical: 20, gap: 12, flexGrow: 1 },
+  messageRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginVertical: 4 },
+  messageRowUser: { justifyContent: 'flex-end' },
+  messageRowPharm: { justifyContent: 'flex-start' },
+  msgAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#E2E8F0', flexShrink: 0 },
+  userAvatarPlaceholder: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  
+  bubbleCol: { maxWidth: '72%', gap: 3 },
+  bubble: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
   bubbleUser: { backgroundColor: '#0B1C5A', borderBottomRightRadius: 4 },
-  bubblePharmacist: { backgroundColor: '#fff', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#F0F0F0' },
-  timeLabel: { fontSize: 10, color: '#B0BAC9', marginTop: 4, marginHorizontal: 4 },
-  typingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0B1C5A' },
+  bubblePharm: { backgroundColor: '#fff', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  bubbleText: { fontSize: 15, lineHeight: 22 },
+  bubbleTextUser: { color: '#fff' },
+  bubbleTextPharm: { color: '#1F2937' },
+  timeLabel: { fontSize: 11, color: '#9CA3AF', paddingHorizontal: 4 },
+  
+  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#0B1C5A' },
+  
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 24 : 14,
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3F4F6',
+    backgroundColor: 'rgba(255,255,255,0.92)', borderTopWidth: 1, borderTopColor: '#F1F3F9',
+  },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'flex-end',
+    backgroundColor: '#F3F4F6', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 6, gap: 8,
   },
   textInput: {
-    flex: 1, backgroundColor: 'transparent', borderRadius: 18,
-    paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: '#111827',
-    maxHeight: 90, borderWidth: 1.5, borderColor: '#E5E7EB',
+    flex: 1, fontSize: 15, color: '#111827', maxHeight: 100, paddingTop: 6, paddingBottom: 6,
   },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center' },
+  sendBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });
-

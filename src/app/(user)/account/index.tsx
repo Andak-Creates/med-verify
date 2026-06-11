@@ -38,7 +38,7 @@ const BLOOD_GROUPS = [
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { user, logout, updateProfile, uploadAvatar } = useAuth();
+  const { user, logout, updateProfile, uploadAvatar, isPro } = useAuth();
   const [biometricEnabled, setBiometricEnabled] = useState(true);
   const [editVisible, setEditVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -188,6 +188,14 @@ export default function AccountScreen() {
           </View>
           <Text style={styles.userName}>{displayName}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
+
+          <TouchableOpacity 
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isPro ? '#FFFBEB' : '#F3F4F6', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, marginBottom: 20 }}
+            onPress={() => router.push(isPro ? '/(user)/account/subscription' : '/(user)/account/paywall' as any)}
+          >
+             <Ionicons name={isPro ? "diamond" : "star-outline"} size={14} color={isPro ? "#E5A800" : "#6B7280"} />
+             <Text style={{ marginLeft: 6, fontSize: 13, fontWeight: '800', color: isPro ? "#E5A800" : "#6B7280", letterSpacing: 0.5 }}>{isPro ? "PRO MEMBER" : "BASIC PLAN"}</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.editBtn} onPress={openEdit}>
             <Text style={styles.editBtnText}>Edit Profile</Text>

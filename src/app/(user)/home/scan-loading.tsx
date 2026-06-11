@@ -3,11 +3,14 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function ScanLoadingScreen() {
   const router = useRouter();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotationAnim = useRef(new Animated.Value(0)).current;
+
+  const { incrementScanCount } = useAuth();
 
   useEffect(() => {
     // Pulse animation
@@ -25,6 +28,7 @@ export default function ScanLoadingScreen() {
 
     // Mock API delay then redirect
     const timer = setTimeout(() => {
+      incrementScanCount();
       router.replace({ pathname: '/(user)/home/result', params: { code: 'DEFAULT_SCAN' } } as any);
     }, 2500);
 

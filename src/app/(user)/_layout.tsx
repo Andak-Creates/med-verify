@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { Redirect, Tabs } from "expo-router";
 import {
   ActivityIndicator,
+  ImageBackground,
   Platform,
   StyleSheet,
   Text,
@@ -31,9 +33,21 @@ export default function Layout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "transparent" }}>
+    <View style={{ flex: 1 }}>
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
+        screenLayout={({ children }) => (
+          <View style={{ flex: 1 }}>
+            <ImageBackground
+              source={require("../../../assets/images/background.png")}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,255,255,0.25)" }]} />
+            {children}
+          </View>
+        )}
         screenOptions={{
           headerShown: false,
         }}
@@ -46,7 +60,7 @@ export default function Layout() {
         {/* Hidden screens */}
         <Tabs.Screen
           name="pharmacy/consultation-call"
-          options={{ href: null }}
+          options={{ href: null, tabBarStyle: { display: "none" } }}
         />
         <Tabs.Screen name="pharmacy/[id]" options={{ href: null }} />
         <Tabs.Screen
@@ -56,7 +70,7 @@ export default function Layout() {
         <Tabs.Screen name="pharmacy/booking-confirm" options={{ href: null }} />
         <Tabs.Screen
           name="pharmacy/consultation-live"
-          options={{ href: null }}
+          options={{ href: null, tabBarStyle: { display: "none" } }}
         />
         <Tabs.Screen
           name="pharmacy/pharmacist-profile"
@@ -74,11 +88,11 @@ export default function Layout() {
         <Tabs.Screen name="home/report" options={{ href: null }} />
         <Tabs.Screen name="home/report-confirm" options={{ href: null }} />
         <Tabs.Screen name="home/result" options={{ href: null }} />
-        <Tabs.Screen name="home/scan-image" options={{ href: null }} />
-        <Tabs.Screen name="home/scan-loading" options={{ href: null }} />
-        <Tabs.Screen name="home/scan-manual" options={{ href: null }} />
-        <Tabs.Screen name="home/scan-qr" options={{ href: null }} />
-        <Tabs.Screen name="ai-chat/chat" options={{ href: null }} />
+        <Tabs.Screen name="home/scan-image" options={{ href: null, tabBarStyle: { display: "none" } }} />
+        <Tabs.Screen name="home/scan-loading" options={{ href: null, tabBarStyle: { display: "none" } }} />
+        <Tabs.Screen name="home/scan-manual" options={{ href: null, tabBarStyle: { display: "none" } }} />
+        <Tabs.Screen name="home/scan-qr" options={{ href: null, tabBarStyle: { display: "none" } }} />
+        <Tabs.Screen name="ai-chat/chat" options={{ href: null, tabBarStyle: { display: "none" } }} />
         <Tabs.Screen name="ai-chat/name-assistant" options={{ href: null }} />
       </Tabs>
     </View>
@@ -98,10 +112,17 @@ function getIcon(routeName: string, focused: boolean): string {
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const { isPro } = useAuth();
   const insets = useSafeAreaInsets();
   const NAVY = "#0B1C5A";
   const GRAY = "#A0AABB";
   const bottomPad = Platform.OS === "ios" ? insets.bottom + 4 : 12;
+
+  const currentRoute = state.routes[state.index];
+  const currentOptions = descriptors[currentRoute.key].options;
+  if (currentOptions.tabBarStyle?.display === "none") {
+    return null;
+  }
 
   const mainTabs = [
     "home/index",
@@ -126,6 +147,17 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             state.routes.findIndex((r: any) => r.key === route.key);
 
           const onPress = () => {
+            const isRestricted =
+              !isPro &&
+              (route.name.includes("ai-chat") ||
+                route.name.includes("pharmacy") ||
+                route.name.includes("history"));
+
+            if (isRestricted) {
+              navigation.navigate("account/paywall");
+              return;
+            }
+
             const event = navigation.emit({
               type: "tabPress",
               target: route.key,

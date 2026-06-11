@@ -25,7 +25,15 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isPro, scanCount } = useAuth();
+  
+  const handleScanAction = (targetRoute: string) => {
+    if (!isPro && scanCount >= 3) {
+      router.push('/(user)/account/paywall' as any);
+    } else {
+      router.push(targetRoute as any);
+    }
+  };
   
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -82,11 +90,16 @@ export default function HomeScreen() {
           <View>
             <Text style={styles.greetingName}>Hello, {greetingName}</Text>
             <Text style={styles.greetingTag}>PEOPLE-FIRST PRECISION</Text>
+            {!isPro && (
+              <Text style={styles.scanCounterText}>
+                Free Scans: {scanCount}/3 used
+              </Text>
+            )}
           </View>
 
           {/* PRO badge */}
-          <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>✦ PRO</Text>
+          <View style={[styles.proBadge, !isPro && styles.basicBadge]}>
+            <Text style={styles.proBadgeText}>{isPro ? "✦ PRO" : "✦ BASIC"}</Text>
           </View>
         </View>
 
@@ -132,7 +145,7 @@ export default function HomeScreen() {
         
         <View style={styles.actionGrid}>
           <Pressable
-            onPress={() => router.push('/(user)/home/scan-image' as any)}
+            onPress={() => handleScanAction('/(user)/home/scan-image')}
             style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.85 }]}
           >
             <View style={styles.actionIconWrap}>
@@ -142,7 +155,7 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/(user)/home/scan-manual' as any)}
+            onPress={() => handleScanAction('/(user)/home/scan-manual')}
             style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.85 }]}
           >
             <View style={styles.actionIconWrap}>
@@ -154,7 +167,7 @@ export default function HomeScreen() {
 
         {/* ── Hero Scan Card ─────────────────────────────────── */}
         <Pressable
-          onPress={() => router.push('/(user)/home/scan-qr' as any)}
+          onPress={() => handleScanAction('/(user)/home/scan-qr')}
           style={({ pressed }) => [styles.heroCard, pressed && { opacity: 0.92 }]}
         >
           <View style={styles.heroWatermark}>
@@ -285,6 +298,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  basicBadge: {
+    backgroundColor: '#6B7280',
+    shadowColor: '#6B7280',
+  },
+  scanCounterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0B1C5A',
+    marginTop: 4,
+    opacity: 0.8,
   },
 
   /* Hero card */
