@@ -58,16 +58,23 @@ const PAST_SESSIONS = [
 export default function ConsultsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
+  const [acceptedSessions, setAcceptedSessions] = useState<Record<string, boolean>>({});
+
+  const acceptSession = (id: string) => {
+    setAcceptedSessions(prev => ({ ...prev, [id]: true }));
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }}
-            style={styles.avatar}
-          />
+          <TouchableOpacity onPress={() => router.push('/(pharmacist)/profile' as any)}>
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }}
+              style={styles.avatar}
+            />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>MedVerify</Text>
         </View>
         <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
@@ -129,14 +136,20 @@ export default function ConsultsScreen() {
                 <View style={styles.cardDivider} />
                 <View style={styles.sessionFooterRow}>
                   <Text style={styles.earningText}>₦1k - ₦5k</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={styles.declineBtn}>
-                      <Text style={styles.declineBtnText}>Decline</Text>
+                  {acceptedSessions['1'] ? (
+                    <TouchableOpacity style={styles.joinBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
+                      <Text style={styles.joinBtnText}>Join Session</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.joinBtn} onPress={() => router.push('/(pharmacist)/call' as any)}>
-                      <Text style={styles.joinBtnText}>Join Call</Text>
-                    </TouchableOpacity>
-                  </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity style={styles.declineBtn}>
+                        <Text style={styles.declineBtnText}>Decline</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.joinBtn} onPress={() => acceptSession('1')}>
+                        <Text style={styles.joinBtnText}>Accept</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -163,14 +176,20 @@ export default function ConsultsScreen() {
                 <View style={styles.cardDivider} />
                 <View style={styles.sessionFooterRow}>
                   <Text style={styles.earningText}>₦3k - ₦10k</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={styles.declineBtn}>
-                      <Text style={styles.declineBtnText}>Decline</Text>
+                  {acceptedSessions['2'] ? (
+                    <TouchableOpacity style={styles.joinBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
+                      <Text style={styles.joinBtnText}>Join Session</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.joinBtn} onPress={() => router.push('/(pharmacist)/call' as any)}>
-                      <Text style={styles.joinBtnText}>Join Call</Text>
-                    </TouchableOpacity>
-                  </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity style={styles.declineBtn}>
+                        <Text style={styles.declineBtnText}>Decline</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.joinBtn} onPress={() => acceptSession('2')}>
+                        <Text style={styles.joinBtnText}>Accept</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -189,7 +208,11 @@ export default function ConsultsScreen() {
             {/* Past Sessions */}
             <View style={styles.sessionsList}>
               {PAST_SESSIONS.map((session) => (
-                <View key={session.id} style={styles.sessionCard}>
+                <TouchableOpacity 
+                  key={session.id} 
+                  style={styles.sessionCard}
+                  onPress={() => router.push('/(pharmacist)/consults/consultation-live?isPast=true' as any)}
+                >
                   <View style={styles.sessionHeaderRow}>
                     <View style={styles.sessionUserInfo}>
                       <Image source={{ uri: session.avatar }} style={styles.patientImage} />
@@ -225,7 +248,7 @@ export default function ConsultsScreen() {
                     {/* Earned */}
                     <Text style={styles.pastEarned}>{session.earned}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </>

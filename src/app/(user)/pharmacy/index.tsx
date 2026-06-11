@@ -28,11 +28,11 @@ export default function PharmacyScreen() {
         <View style={styles.header}>
           <Text style={styles.logoText}>MedVerify</Text>
           <View style={styles.headerActions}>
-            <Pressable style={styles.iconButton}>
+            <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
               <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
               <View style={styles.notifDot} />
             </Pressable>
-            <Pressable style={styles.avatarButton}>
+            <Pressable style={styles.avatarButton} onPress={() => router.push('/(user)/account' as any)}>
               <Image 
                 source={{ uri: 'https://i.pravatar.cc/150?img=47' }} 
                 style={styles.avatarImg} 

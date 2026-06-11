@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -27,6 +27,9 @@ const INITIAL: Msg[] = [
 ];
 
 export default function ConsultationLiveScreen() {
+  const { isPast, callActive } = useLocalSearchParams();
+  const isPastSession = isPast === 'true';
+  const isCallActive = callActive === 'true';
   const router = useRouter();
   const [msgs, setMsgs] = useState<Msg[]>(INITIAL);
   const [input, setInput] = useState('');
@@ -34,6 +37,7 @@ export default function ConsultationLiveScreen() {
   const [elapsed, setElapsed] = useState(0);
   const flatRef = useRef<FlatList>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const callBannerBlink = useRef(new Animated.Value(1)).current;
 
   // Professional Pharmacist Photo
   const pharmAvatar = "https://images.unsplash.com/photo-1594824436998-dd40e4f3a763?w=200&q=80";
@@ -53,6 +57,17 @@ export default function ConsultationLiveScreen() {
       ])
     ).start();
   }, []);
+
+  // Call banner blink animation
+  useEffect(() => {
+    if (!isCallActive) return;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(callBannerBlink, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+        Animated.timing(callBannerBlink, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [isCallActive]);
 
   const fmt = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
 
@@ -115,23 +130,42 @@ export default function ConsultationLiveScreen() {
           <View>
             <Text style={styles.pharmName}>Dr. Adaeze Okafor</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={styles.liveLabel}>Live Session • {fmt}</Text>
+              {!isPastSession && <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />}
+              <Text style={[styles.liveLabel, isPastSession && { color: '#6B7280' }]}>{isPastSession ? 'Completed Session' : `Live Session • ${fmt}`}</Text>
             </View>
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity onPress={() => router.push('/(user)/pharmacy/consultation-call' as any)} style={styles.actionBtn}>
-            <Ionicons name="call" size={18} color="#0B1C5A" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(user)/pharmacy/consultation-call' as any)} style={styles.actionBtn}>
-            <Ionicons name="videocam" size={18} color="#0B1C5A" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.replace('/(user)/pharmacy' as any)} style={styles.endBtn}>
-            <Text style={styles.endBtnText}>End</Text>
-          </TouchableOpacity>
+          {isPastSession ? (
+            <TouchableOpacity onPress={() => router.push('/(user)/pharmacy/2' as any)} style={styles.endBtn}>
+              <Text style={styles.endBtnText}>Book Again</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity onPress={() => router.push('/(user)/pharmacy/consultation-call' as any)} style={styles.actionBtn}>
+                <Ionicons name="call" size={18} color="#0B1C5A" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.replace('/(user)/pharmacy/post-review' as any)} style={styles.endBtn}>
+                <Text style={styles.endBtnText}>End</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
+
+      {/* Call In Progress Banner */}
+      {isCallActive && (
+        <TouchableOpacity
+          style={styles.callBanner}
+          onPress={() => router.push('/(user)/pharmacy/consultation-call' as any)}
+          activeOpacity={0.85}
+        >
+          <Animated.View style={[styles.callBannerDot, { opacity: callBannerBlink }]} />
+          <Ionicons name="call" size={14} color="#fff" />
+          <Text style={styles.callBannerText}>Audio call in progress — tap to return</Text>
+          <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.7)" />
+        </TouchableOpacity>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         <FlatList
@@ -155,25 +189,27 @@ export default function ConsultationLiveScreen() {
         />
 
         {/* Input */}
-        <View style={styles.inputBar}>
-          <View style={styles.inputWrap}>
-            <TextInput
-              value={input}
-              onChangeText={setInput}
-              placeholder="Type your message..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              style={styles.textInput}
-            />
-            <Pressable 
-              onPress={send} 
-              disabled={!input.trim()} 
-              style={[styles.sendBtn, !input.trim() && { backgroundColor: '#E5E7EB' }]}
-            >
-              <Ionicons name="send" size={16} color={input.trim() ? '#fff' : '#9CA3AF'} />
-            </Pressable>
+        {!isPastSession && (
+          <View style={styles.inputBar}>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={input}
+                onChangeText={setInput}
+                placeholder="Type your message..."
+                placeholderTextColor="#9CA3AF"
+                multiline
+                style={styles.textInput}
+              />
+              <Pressable 
+                onPress={send} 
+                disabled={!input.trim()} 
+                style={[styles.sendBtn, !input.trim() && { backgroundColor: '#E5E7EB' }]}
+              >
+                <Ionicons name="send" size={16} color={input.trim() ? '#fff' : '#9CA3AF'} />
+              </Pressable>
+            </View>
           </View>
-        </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -225,4 +261,11 @@ const styles = StyleSheet.create({
     flex: 1, fontSize: 15, color: '#111827', maxHeight: 100, paddingTop: 6, paddingBottom: 6,
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  callBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  callBannerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
+  callBannerText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#fff' },
 });

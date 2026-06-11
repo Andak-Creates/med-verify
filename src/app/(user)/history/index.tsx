@@ -358,7 +358,7 @@ export default function HistoryScreen() {
               </View>
 
               <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.primaryBtn}>
+                <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/(user)/pharmacy/consultation-live' as any)}>
                   <Ionicons name="play-circle-outline" size={18} color="#fff" />
                   <Text style={styles.primaryBtnText}>Join Session</Text>
                 </TouchableOpacity>
@@ -375,16 +375,19 @@ export default function HistoryScreen() {
             </View>
 
             {/* Past Item 1 */}
-            <View style={styles.pastCard}>
+            <TouchableOpacity 
+              style={styles.pastCard}
+              onPress={() => router.push('/(user)/pharmacy/consultation-live?isPast=true' as any)}
+            >
               <View style={styles.pastHeader}>
                 <Image
                   source={{ uri: "https://i.pravatar.cc/150?img=11" }}
                   style={styles.docAvatarSmall}
                 />
                 <View style={styles.pastDocInfo}>
-                  <Text style={styles.pastDocName}>Dr. James Wilson</Text>
+                  <Text style={styles.pastDocName}>Pharm. James Wilson</Text>
                   <Text style={styles.pastDocSpec}>
-                    Cardiologist • In-Person
+                    Clinical Pharmacist • Call & Chat
                   </Text>
                 </View>
                 <View style={styles.pastDateWrap}>
@@ -417,10 +420,13 @@ export default function HistoryScreen() {
                   <Text style={styles.chipText}>Completed</Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Past Item 2 */}
-            <View style={styles.pastCard}>
+            <TouchableOpacity 
+              style={styles.pastCard}
+              onPress={() => router.push('/(user)/pharmacy/consultation-live?isPast=true' as any)}
+            >
               <View style={styles.pastHeader}>
                 <View
                   style={[
@@ -435,9 +441,9 @@ export default function HistoryScreen() {
                   <Ionicons name="medkit-outline" size={24} color="#4B5563" />
                 </View>
                 <View style={styles.pastDocInfo}>
-                  <Text style={styles.pastDocName}>Clinic Visit</Text>
+                  <Text style={styles.pastDocName}>Pharm. Sarah Jenkins</Text>
                   <Text style={styles.pastDocSpec}>
-                    Lab Results Review • Walk-in
+                    Pediatric Pharmacist • Audio Call
                   </Text>
                 </View>
                 <View style={styles.pastDateWrap}>
@@ -450,7 +456,7 @@ export default function HistoryScreen() {
                   style={{ marginLeft: 8 }}
                 />
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>

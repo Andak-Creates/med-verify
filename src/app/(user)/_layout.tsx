@@ -1,9 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import { Redirect, Tabs } from "expo-router";
 import {
   ActivityIndicator,
-  ImageBackground,
   Platform,
   StyleSheet,
   Text,
@@ -37,14 +35,7 @@ export default function Layout() {
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
         screenLayout={({ children }) => (
-          <View style={{ flex: 1 }}>
-            <ImageBackground
-              source={require("../../../assets/images/background.png")}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,255,255,0.25)" }]} />
+          <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
             {children}
           </View>
         )}

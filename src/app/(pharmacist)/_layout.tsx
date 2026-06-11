@@ -52,7 +52,8 @@ export default function PharmacistLayout() {
         <Tabs.Screen name="profile/index"   options={{ title: "PROFILE" }} />
         {/* Hidden screens - registered in layout so they keep the nav bar */}
         <Tabs.Screen name="notifications"           options={{ href: null }} />
-        <Tabs.Screen name="call"                    options={{ href: null }} />
+        <Tabs.Screen name="call"                    options={{ href: null, tabBarStyle: { display: "none" } }} />
+        <Tabs.Screen name="consults/consultation-live" options={{ href: null, tabBarStyle: { display: "none" } }} />
         <Tabs.Screen name="profile/settings"        options={{ href: null }} />
         <Tabs.Screen name="profile/edit-profile"    options={{ href: null }} />
         <Tabs.Screen name="profile/fee-settings"    options={{ href: null }} />
@@ -76,6 +77,12 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const NAVY = "#0B1C5A";
   const GRAY = "#A0AABB";
   const bottomPad = Platform.OS === "ios" ? insets.bottom + 4 : 12;
+
+  const currentRoute = state.routes[state.index];
+  const currentOptions = descriptors[currentRoute.key].options;
+  if (currentOptions.tabBarStyle?.display === "none") {
+    return null;
+  }
 
   const mainTabs = [
     "dashboard/index", 

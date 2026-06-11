@@ -29,9 +29,10 @@ const NOTIFICATION_GROUPS = [
 ];
 
 const NOTIF_DATA = [
-  { id: '1', icon: 'checkmark-circle', color: '#16a34a', bg: '#F0FDF4', title: 'Scan Verified', body: 'Paracetamol BP 500mg â€” AUTHENTIC', time: '2h ago' },
+  { id: '1', icon: 'checkmark-circle', color: '#16a34a', bg: '#F0FDF4', title: 'Scan Verified', body: 'Paracetamol BP 500mg — AUTHENTIC', time: '2h ago' },
   { id: '2', icon: 'warning',          color: '#dc2626', bg: '#FEF2F2', title: 'Counterfeit Detected', body: 'Chloroquine 250mg flagged as FAKE', time: 'Yesterday' },
-  { id: '3', icon: 'calendar',         color: '#0B1C5A', bg: '#EEF1FB', title: 'Consultation Tomorrow', body: 'Video call with Dr. Okafor at 10 AM', time: 'Jun 3' },
+  { id: '4', icon: 'close-circle',     color: '#dc2626', bg: '#FEF2F2', title: 'Consultation Declined', body: 'Dr. Okafor is currently unavailable. Please request another pharmacist.', time: 'Yesterday' },
+  { id: '3', icon: 'calendar',         color: '#0B1C5A', bg: '#EEF1FB', title: 'Consultation Tomorrow', body: 'Audio call with Dr. Okafor at 10 AM', time: 'Jun 3' },
 ];
 
 export default function NotificationsScreen() {

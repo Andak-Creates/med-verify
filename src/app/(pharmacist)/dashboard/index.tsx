@@ -1,28 +1,57 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const [acceptedInquiries, setAcceptedInquiries] = useState<Record<string, boolean>>({});
+  const [isOnline, setIsOnline] = useState(true);
+
+  const acceptInquiry = (id: string) => {
+    setAcceptedInquiries(prev => ({ ...prev, [id]: true }));
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }} 
-            style={styles.avatar} 
-          />
-          <Text style={styles.headerTitle}>MedVerify Pro</Text>
+          <TouchableOpacity onPress={() => router.push('/(pharmacist)/profile' as any)}>
+            <Image 
+              source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }} 
+              style={styles.avatar} 
+            />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>MedVerify Pro</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isOnline ? '#10B981' : '#9CA3AF' }} />
+              <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>{isOnline ? 'Online' : 'Offline'}</Text>
+            </View>
+          </View>
         </View>
-        <TouchableOpacity style={styles.notificationBtn}>
-          <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Switch 
+            value={isOnline} 
+            onValueChange={setIsOnline} 
+            trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+            thumbColor={'#ffffff'}
+          />
+          <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
+            <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {!isOnline && (
+          <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="information-circle" size={20} color="#EF4444" />
+            <Text style={{ color: '#B91C1C', fontSize: 13, flex: 1, fontWeight: '500' }}>You are currently offline. You will not receive any new consultation requests.</Text>
+          </View>
+        )}
         
         {/* Top Stats */}
         <View style={styles.statsRow}>
@@ -106,14 +135,20 @@ export default function DashboardScreen() {
                 <Ionicons name="cash-outline" size={16} color="#15803D" />
                 <Text style={styles.earningText}>₦3,500 Est.</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity style={styles.declineBtn}>
-                  <Text style={styles.declineBtnText}>Decline</Text>
+              {acceptedInquiries['1'] ? (
+                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
+                  <Text style={styles.startBtnText}>Join Session</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/call' as any)}>
-                  <Text style={styles.startBtnText}>Start</Text>
-                </TouchableOpacity>
-              </View>
+              ) : (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={styles.declineBtn}>
+                    <Text style={styles.declineBtnText}>Decline</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.startBtn} onPress={() => acceptInquiry('1')}>
+                    <Text style={styles.startBtnText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -145,14 +180,20 @@ export default function DashboardScreen() {
                 <Ionicons name="cash-outline" size={16} color="#15803D" />
                 <Text style={styles.earningText}>₦3,500 Est.</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity style={styles.declineBtn}>
-                  <Text style={styles.declineBtnText}>Decline</Text>
+              {acceptedInquiries['2'] ? (
+                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
+                  <Text style={styles.startBtnText}>Join Session</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/call' as any)}>
-                  <Text style={styles.startBtnText}>Start</Text>
-                </TouchableOpacity>
-              </View>
+              ) : (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={styles.declineBtn}>
+                    <Text style={styles.declineBtnText}>Decline</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.startBtn} onPress={() => acceptInquiry('2')}>
+                    <Text style={styles.startBtnText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -184,14 +225,20 @@ export default function DashboardScreen() {
                 <Ionicons name="cash-outline" size={16} color="#15803D" />
                 <Text style={styles.earningText}>₦6,500 Est.</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity style={styles.declineBtn}>
-                  <Text style={styles.declineBtnText}>Decline</Text>
+              {acceptedInquiries['3'] ? (
+                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
+                  <Text style={styles.startBtnText}>Join Session</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/call' as any)}>
-                  <Text style={styles.startBtnText}>Start</Text>
-                </TouchableOpacity>
-              </View>
+              ) : (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={styles.declineBtn}>
+                    <Text style={styles.declineBtnText}>Decline</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.startBtn} onPress={() => acceptInquiry('3')}>
+                    <Text style={styles.startBtnText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 

@@ -69,7 +69,7 @@ export default function HomeScreen() {
 
           <View style={styles.headerActions}>
             {/* Bell */}
-            <Pressable style={styles.iconButton}>
+            <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
               <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
               <View style={styles.notifDot} />
             </Pressable>

@@ -21,14 +21,6 @@ export default function ConsultationCallScreen() {
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState(true);
 
-  // Chat Overlay State
-  const [chatVisible, setChatVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(2); // Simulated unread messages
-  const [messageInput, setMessageInput] = useState('');
-  const [messages, setMessages] = useState([
-    { id: 1, text: 'Hello, please can you confirm your symptoms?', sender: 'pharmacist', time: '02:00 PM' },
-    { id: 2, text: 'I also noticed the image you attached has a blurry label.', sender: 'pharmacist', time: '02:01 PM' },
-  ]);
 
   // Pulsing animation for the pharmacist avatar
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -59,7 +51,7 @@ export default function ConsultationCallScreen() {
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         {/* Back button */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(user)/pharmacy/consultation-live?callActive=true' as any)}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
 
@@ -120,82 +112,16 @@ export default function ConsultationCallScreen() {
             <View style={styles.controlItem}>
               <TouchableOpacity
                 style={styles.endBtn}
-                onPress={() => router.back()}
+                onPress={() => router.replace('/(user)/pharmacy/post-review' as any)}
               >
                 <Ionicons name="call" size={26} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
               </TouchableOpacity>
               <Text style={[styles.controlLabel, { color: '#EF4444', fontWeight: '800' }]}>END</Text>
             </View>
 
-            {/* Chat */}
-            <View style={styles.controlItem}>
-              <TouchableOpacity
-                style={[styles.controlBtn, chatVisible && styles.controlBtnActive]}
-                onPress={() => {
-                  setChatVisible(true);
-                  setUnreadCount(0);
-                }}
-              >
-                <Ionicons name="chatbubble-ellipses-outline" size={24} color={chatVisible ? '#0B1C5A' : '#1E293B'} />
-                {unreadCount > 0 && !chatVisible && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unreadCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <Text style={styles.controlLabel}>Chat</Text>
-            </View>
           </View>
         </View>
 
-        {/* Chat Overlay Modal */}
-        <Modal visible={chatVisible} animationType="slide" transparent>
-          <View style={styles.chatOverlay}>
-            <View style={styles.chatHeader}>
-              <Text style={styles.chatTitle}>Session Chat</Text>
-              <TouchableOpacity onPress={() => setChatVisible(false)}>
-                <Ionicons name="close" size={24} color="#1E293B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.chatList}>
-              {messages.map((m) => {
-                const isMe = m.sender === 'user';
-                return (
-                  <View key={m.id} style={[styles.messageRow, isMe ? styles.messageMe : styles.messageThem]}>
-                    <View style={[styles.messageBubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                      <Text style={[styles.messageText, isMe ? styles.textMe : styles.textThem]}>{m.text}</Text>
-                    </View>
-                    <Text style={styles.messageTime}>{m.time}</Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <View style={styles.chatInputRow}>
-                <TextInput
-                  style={styles.chatInput}
-                  placeholder="Type a message..."
-                  placeholderTextColor="#94A3B8"
-                  value={messageInput}
-                  onChangeText={setMessageInput}
-                />
-                <TouchableOpacity
-                  style={styles.sendBtn}
-                  onPress={() => {
-                    if (messageInput.trim()) {
-                      setMessages([...messages, { id: Date.now(), text: messageInput, sender: 'user', time: 'Now' }]);
-                      setMessageInput('');
-                    }
-                  }}
-                >
-                  <Ionicons name="send" size={18} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </View>
-        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -345,81 +271,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#0F172A',
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-
-  /* Chat Overlay */
-  chatOverlay: {
-    flex: 1,
-    marginTop: 100,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  chatTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B' },
-  chatList: { padding: 20, gap: 16, paddingBottom: 40 },
-  messageRow: { maxWidth: '80%' },
-  messageMe: { alignSelf: 'flex-end' },
-  messageThem: { alignSelf: 'flex-start' },
-  messageBubble: { padding: 14, borderRadius: 20 },
-  bubbleMe: { backgroundColor: '#0B1C5A', borderBottomRightRadius: 4 },
-  bubbleThem: { backgroundColor: '#E2E8F0', borderBottomLeftRadius: 4 },
-  messageText: { fontSize: 15, lineHeight: 22 },
-  textMe: { color: '#fff' },
-  textThem: { color: '#1E293B' },
-  messageTime: { fontSize: 11, color: '#94A3B8', marginTop: 4, alignSelf: 'flex-end' },
-  chatInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingBottom: 34,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  chatInput: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    fontSize: 15,
-    marginRight: 10,
-  },
-  sendBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0B1C5A',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
