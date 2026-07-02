@@ -1,61 +1,55 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-} from "react";
-import { Platform } from "react-native";
-import { api, TOKEN_STORAGE_KEY } from "../lib/api";
-import { deleteToken, setToken } from "../lib/tokenStorage";
+} from 'react';
+import { clearToken, getToken, onSessionExpired, setToken as persistToken } from '@/api/tokenManager';
+import * as authService from '@/services/auth.service';
+import * as pharmacistService from '@/services/pharmacist.service';
+import * as usersService from '@/services/users.service';
+import { disconnectSocket } from '@/sockets/socketManager';
+import type {
+  AuthSession,
+  MedVerifyUser,
+  PharmacistStatusInfo,
+  UploadableFile,
+  UserProfileUpdates,
+  UserRole,
+} from '@/types/api';
 
-export interface MedVerifyUser {
-  id: string;
-  email: string;
-  fullName: string | null;
-  username: string;
-  role: "USER" | "PHARMACIST";
-  authProvider: "email" | "google";
-  emailVerified: boolean;
-  profileImage: string | null;
-  bloodGroup: string | null;
-  allergies: string | null;
-  chronicConditions: string | null;
-  createdAt: string;
-}
+export type { MedVerifyUser } from '@/types/api';
 
 interface AuthContextValue {
   user: MedVerifyUser | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signup: (
-    email: string,
-    password: string,
-    role: "USER" | "PHARMACIST",
-  ) => Promise<{ email: string; role: string }>;
+  // User auth
+  signup: (email: string, password: string, role: UserRole) => Promise<{ email: string; role: string }>;
   resendOtp: (email: string) => Promise<void>;
   verifyOtp: (email: string, otp: string) => Promise<MedVerifyUser>;
   login: (email: string, password: string) => Promise<MedVerifyUser>;
   googleAuth: (idToken: string) => Promise<MedVerifyUser>;
   logout: () => Promise<void>;
+  // Pharmacist staged onboarding (email/password only — Google is blocked)
+  pharmacistSignup: (email: string, password: string, phone: string) => Promise<{ email: string }>;
+  pharmacistVerifyOtp: (email: string, otp: string) => Promise<MedVerifyUser>;
+  pharmacistResendOtp: (email: string) => Promise<void>;
+  pharmacistLogin: (email: string, password: string) => Promise<MedVerifyUser>;
+  submitPharmacistCredentials: (input: {
+    nin: string;
+    pcn: string;
+    certificate?: UploadableFile;
+  }) => Promise<void>;
+  getPharmacistStatus: () => Promise<PharmacistStatusInfo>;
+  // Profile
   refreshProfile: () => Promise<MedVerifyUser | null>;
-  updateProfile: (
-    updates: Partial<{
-      fullName: string;
-      username: string;
-      profileImage: string | null;
-      bloodGroup: string | null;
-      allergies: string | null;
-      chronicConditions: string | null;
-    }>,
-  ) => Promise<MedVerifyUser>;
-  uploadAvatar: (file: {
-    uri: string;
-    name: string;
-    type: string;
-  }) => Promise<MedVerifyUser>;
-  devLogin: (role: "USER" | "PHARMACIST") => Promise<void>;
+  updateProfile: (updates: UserProfileUpdates) => Promise<MedVerifyUser>;
+  uploadAvatar: (file: UploadableFile) => Promise<MedVerifyUser>;
+  // Local subscription state (no backend support yet)
   isPro: boolean;
   scanCount: number;
   incrementScanCount: () => void;
@@ -65,14 +59,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function persistSession(token: string) {
-  await setToken(TOKEN_STORAGE_KEY, token);
-}
-
-async function clearSession() {
-  await deleteToken(TOKEN_STORAGE_KEY);
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MedVerifyUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -80,159 +66,132 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = useState(true);
   const [scanCount, setScanCount] = useState(0);
 
-  const incrementScanCount = () => {
-    setScanCount((c) => c + 1);
-  };
-
-  const subscribeToPro = () => {
-    setIsPro(true);
-  };
-
-  const unsubscribeFromPro = () => {
-    setIsPro(false);
-  };
-
-  useEffect(() => {
-    // DISCONNECTED FROM BACKEND FOR UI DEVELOPMENT
-    setTimeout(() => setIsLoading(false), 500);
+  const applySession = useCallback(async (session: AuthSession) => {
+    await persistToken(session.token);
+    setToken(session.token);
+    setUser(session.user);
+    return session.user;
   }, []);
 
-  const signup: AuthContextValue["signup"] = async (email, password, role) => {
-    // MOCK SIGNUP
-    await new Promise((r) => setTimeout(r, 800));
-    return { email, role };
-  };
-
-  const resendOtp: AuthContextValue["resendOtp"] = async (email) => {
-    // MOCK RESEND OTP
-    await new Promise((r) => setTimeout(r, 500));
-  };
-
-  const verifyOtp: AuthContextValue["verifyOtp"] = async (email, otp) => {
-    // MOCK VERIFY OTP
-    await new Promise((r) => setTimeout(r, 800));
-    const role = email.includes('pharm') ? 'PHARMACIST' : 'USER';
-    const fakeToken = "mock_token_" + Date.now();
-    const fakeUser: MedVerifyUser = {
-      id: "mock_" + Date.now(),
-      email,
-      fullName: "Mock User",
-      username: email.split('@')[0],
-      role: role as "USER" | "PHARMACIST",
-      authProvider: "email",
-      emailVerified: true,
-      profileImage: null,
-      bloodGroup: null,
-      allergies: null,
-      chronicConditions: null,
-      createdAt: new Date().toISOString(),
-    };
-    await persistSession(fakeToken);
-    setToken(fakeToken);
-    setUser(fakeUser);
-    return fakeUser;
-  };
-
-  const login: AuthContextValue["login"] = async (email, password) => {
-    // MOCK LOGIN
-    await new Promise((r) => setTimeout(r, 800));
-    const role = email.includes('pharm') ? 'PHARMACIST' : 'USER';
-    const fakeToken = "mock_token_" + Date.now();
-    const fakeUser: MedVerifyUser = {
-      id: "mock_" + Date.now(),
-      email,
-      fullName: "Mock User",
-      username: email.split('@')[0],
-      role: role as "USER" | "PHARMACIST",
-      authProvider: "email",
-      emailVerified: true,
-      profileImage: null,
-      bloodGroup: null,
-      allergies: null,
-      chronicConditions: null,
-      createdAt: new Date().toISOString(),
-    };
-    await persistSession(fakeToken);
-    setToken(fakeToken);
-    setUser(fakeUser);
-    return fakeUser;
-  };
-
-  const googleAuth: AuthContextValue["googleAuth"] = async (idToken) => {
-    // MOCK GOOGLE AUTH
-    await new Promise((r) => setTimeout(r, 800));
-    const fakeToken = "mock_google_token_" + Date.now();
-    const fakeUser: MedVerifyUser = {
-      id: "mock_google_" + Date.now(),
-      email: "google@user.com",
-      fullName: "Google User",
-      username: "google_user",
-      role: "USER",
-      authProvider: "google",
-      emailVerified: true,
-      profileImage: null,
-      bloodGroup: null,
-      allergies: null,
-      chronicConditions: null,
-      createdAt: new Date().toISOString(),
-    };
-    await persistSession(fakeToken);
-    setToken(fakeToken);
-    setUser(fakeUser);
-    return fakeUser;
-  };
-
-  const logout: AuthContextValue["logout"] = async () => {
-    // MOCK LOGOUT
-    await new Promise((r) => setTimeout(r, 300));
-    await clearSession();
+  const resetSession = useCallback(async () => {
+    disconnectSocket();
+    await clearToken();
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
-  const refreshProfile: AuthContextValue["refreshProfile"] = async () => {
-    if (!token || !user) return null;
-    return user;
-  };
+  // Auto-login on app restart: restore the stored JWT and validate it against
+  // the backend. An invalid/expired token clears the session.
+  useEffect(() => {
+    (async () => {
+      try {
+        const storedToken = await getToken();
+        if (storedToken) {
+          setToken(storedToken);
+          const profile = await usersService.getProfile();
+          setUser(profile);
+        }
+      } catch {
+        await resetSession();
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [resetSession]);
 
-  const updateProfile: AuthContextValue["updateProfile"] = async (updates) => {
-    // MOCK UPDATE PROFILE
-    await new Promise((r) => setTimeout(r, 500));
-    if (!user) throw new Error("Not logged in");
-    const updatedUser = { ...user, ...updates } as MedVerifyUser;
-    setUser(updatedUser);
-    return updatedUser;
-  };
+  // The API client clears the token and notifies on 401 (expired/revoked JWT).
+  useEffect(() => {
+    return onSessionExpired(() => {
+      disconnectSocket();
+      setToken(null);
+      setUser(null);
+    });
+  }, []);
 
-  const uploadAvatar: AuthContextValue["uploadAvatar"] = async (file) => {
-    // MOCK UPLOAD AVATAR
-    await new Promise((r) => setTimeout(r, 800));
-    if (!user) throw new Error("Not logged in");
-    const updatedUser = { ...user, profileImage: file.uri } as MedVerifyUser;
-    setUser(updatedUser);
-    return updatedUser;
-  };
+  const signup: AuthContextValue['signup'] = useCallback(
+    (email, password, role) => authService.signup(email, password, role),
+    [],
+  );
 
-  const devLogin: AuthContextValue["devLogin"] = async (role) => {
-    const fakeToken = "dev_fake_token_" + role;
-    const fakeUser: MedVerifyUser = {
-      id: "dev_user_1",
-      email: "dev@medverify.com",
-      fullName: "Dev User",
-      username: "dev_user",
-      role: role,
-      authProvider: "email",
-      emailVerified: true,
-      profileImage: null,
-      bloodGroup: null,
-      allergies: null,
-      chronicConditions: null,
-      createdAt: new Date().toISOString(),
-    };
-    await persistSession(fakeToken);
-    setToken(fakeToken);
-    setUser(fakeUser);
-  };
+  const resendOtp: AuthContextValue['resendOtp'] = useCallback(
+    (email) => authService.resendOtp(email),
+    [],
+  );
+
+  const verifyOtp: AuthContextValue['verifyOtp'] = useCallback(
+    async (email, otp) => applySession(await authService.verifyOtp(email, otp)),
+    [applySession],
+  );
+
+  const login: AuthContextValue['login'] = useCallback(
+    async (email, password) => applySession(await authService.login(email, password)),
+    [applySession],
+  );
+
+  const googleAuth: AuthContextValue['googleAuth'] = useCallback(
+    async (idToken) => applySession(await authService.googleAuth(idToken)),
+    [applySession],
+  );
+
+  const logout: AuthContextValue['logout'] = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // Token may already be invalid/expired — proceed with local cleanup regardless.
+    }
+    await resetSession();
+  }, [resetSession]);
+
+  const pharmacistSignup: AuthContextValue['pharmacistSignup'] = useCallback(
+    (email, password, phone) => pharmacistService.signup(email, password, phone),
+    [],
+  );
+
+  const pharmacistVerifyOtp: AuthContextValue['pharmacistVerifyOtp'] = useCallback(
+    async (email, otp) => applySession(await pharmacistService.verifyOtp(email, otp)),
+    [applySession],
+  );
+
+  const pharmacistResendOtp: AuthContextValue['pharmacistResendOtp'] = useCallback(
+    (email) => pharmacistService.resendOtp(email),
+    [],
+  );
+
+  const pharmacistLogin: AuthContextValue['pharmacistLogin'] = useCallback(
+    async (email, password) => applySession(await pharmacistService.login(email, password)),
+    [applySession],
+  );
+
+  const submitPharmacistCredentials: AuthContextValue['submitPharmacistCredentials'] =
+    useCallback((input) => pharmacistService.submitCredentials(input), []);
+
+  const getPharmacistStatus: AuthContextValue['getPharmacistStatus'] = useCallback(
+    () => pharmacistService.getStatus(),
+    [],
+  );
+
+  const refreshProfile: AuthContextValue['refreshProfile'] = useCallback(async () => {
+    if (!token) return null;
+    const profile = await usersService.getProfile();
+    setUser(profile);
+    return profile;
+  }, [token]);
+
+  const updateProfile: AuthContextValue['updateProfile'] = useCallback(async (updates) => {
+    const updated = await usersService.updateProfile(updates);
+    setUser(updated);
+    return updated;
+  }, []);
+
+  const uploadAvatar: AuthContextValue['uploadAvatar'] = useCallback(async (file) => {
+    const updated = await usersService.uploadAvatar(file);
+    setUser(updated);
+    return updated;
+  }, []);
+
+  const incrementScanCount = useCallback(() => setScanCount((c) => c + 1), []);
+  const subscribeToPro = useCallback(() => setIsPro(true), []);
+  const unsubscribeFromPro = useCallback(() => setIsPro(false), []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -246,17 +205,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       googleAuth,
       logout,
+      pharmacistSignup,
+      pharmacistVerifyOtp,
+      pharmacistResendOtp,
+      pharmacistLogin,
+      submitPharmacistCredentials,
+      getPharmacistStatus,
       refreshProfile,
       updateProfile,
       uploadAvatar,
-      devLogin,
       isPro,
       scanCount,
       incrementScanCount,
       subscribeToPro,
       unsubscribeFromPro,
     }),
-    [user, token, isLoading, isPro, scanCount],
+    [
+      user,
+      token,
+      isLoading,
+      signup,
+      resendOtp,
+      verifyOtp,
+      login,
+      googleAuth,
+      logout,
+      pharmacistSignup,
+      pharmacistVerifyOtp,
+      pharmacistResendOtp,
+      pharmacistLogin,
+      submitPharmacistCredentials,
+      getPharmacistStatus,
+      refreshProfile,
+      updateProfile,
+      uploadAvatar,
+      isPro,
+      scanCount,
+      incrementScanCount,
+      subscribeToPro,
+      unsubscribeFromPro,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -264,6 +252,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
   return ctx;
 }

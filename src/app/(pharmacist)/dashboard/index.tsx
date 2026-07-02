@@ -1,17 +1,99 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { usePharmacistConsultations, usePharmacistDashboard } from '@/hooks/usePharmacistConsultations';
+import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
+import type { PendingRequest } from '@/types/api';
+
+function formatRelativeTime(isoDate: string): string {
+  const diffMins = Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} minutes ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+}
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [acceptedInquiries, setAcceptedInquiries] = useState<Record<string, boolean>>({});
-  const [isOnline, setIsOnline] = useState(true);
+  const { profile, update: updateProfile } = usePharmacistProfile();
+  const dashboard = usePharmacistDashboard();
+  const past = usePharmacistConsultations('past');
+  const pendingActions = usePharmacistConsultations();
+  const [togglingAvailability, setTogglingAvailability] = useState(false);
+  const [acceptedIds, setAcceptedIds] = useState<Record<string, boolean>>({});
 
-  const acceptInquiry = (id: string) => {
-    setAcceptedInquiries(prev => ({ ...prev, [id]: true }));
+  // Availability maps to the profile's vacation mode (the only backend switch
+  // that removes a pharmacist from the public "available" listing).
+  const isAvailable = profile ? !profile.vacationMode : true;
+
+  const handleToggleAvailability = async (next: boolean) => {
+    if (!profile) return;
+    setTogglingAvailability(true);
+    try {
+      await updateProfile({ vacationMode: !next });
+    } catch (err) {
+      Alert.alert('Could not update availability', getApiErrorMessage(err));
+    } finally {
+      setTogglingAvailability(false);
+    }
   };
+
+  const { completedCount, grossEarnings } = useMemo(() => {
+    const completed = past.items.filter((c) => c.status === 'COMPLETED');
+    return {
+      completedCount: completed.length,
+      grossEarnings: completed.reduce((sum, c) => sum + (c.feeAmount ?? 0), 0),
+    };
+  }, [past.items]);
+
+  // Wallet balance = lifetime gross minus the 10% platform fee.
+  const walletBalance = grossEarnings * 0.9;
+
+  const handleAccept = async (request: PendingRequest) => {
+    try {
+      await pendingActions.accept(request.id);
+      setAcceptedIds((prev) => ({ ...prev, [request.id]: true }));
+      dashboard.refresh();
+    } catch (err) {
+      Alert.alert('Could not accept', getApiErrorMessage(err, 'This request may no longer be pending.'));
+      dashboard.refresh();
+    }
+  };
+
+  const handleDecline = async (request: PendingRequest) => {
+    try {
+      await pendingActions.decline(request.id);
+      dashboard.refresh();
+    } catch (err) {
+      Alert.alert('Could not decline', getApiErrorMessage(err, 'This request may no longer be pending.'));
+      dashboard.refresh();
+    }
+  };
+
+  const refreshAll = () => {
+    dashboard.refresh();
+    past.refresh();
+  };
+
+  const stats = dashboard.stats;
+  const visibleRequests = (stats?.recentRequests ?? []).slice(0, 3);
+  const remainingCount = Math.max((stats?.totalPending ?? 0) - visibleRequests.length, 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -19,23 +101,29 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.push('/(pharmacist)/profile' as any)}>
-            <Image 
-              source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }} 
-              style={styles.avatar} 
-            />
+            {profile?.profileImage ? (
+              <Image source={{ uri: profile.profileImage }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+              </View>
+            )}
           </TouchableOpacity>
           <View>
             <Text style={styles.headerTitle}>MedVerify Pro</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isOnline ? '#10B981' : '#9CA3AF' }} />
-              <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>{isOnline ? 'Online' : 'Offline'}</Text>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isAvailable ? '#10B981' : '#9CA3AF' }} />
+              <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>
+                {isAvailable ? 'Available' : 'On Vacation'}
+              </Text>
             </View>
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Switch 
-            value={isOnline} 
-            onValueChange={setIsOnline} 
+          <Switch
+            value={isAvailable}
+            onValueChange={handleToggleAvailability}
+            disabled={togglingAvailability || !profile}
             trackColor={{ false: '#D1D5DB', true: '#10B981' }}
             thumbColor={'#ffffff'}
           />
@@ -45,27 +133,41 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {!isOnline && (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={dashboard.isRefreshing || past.isRefreshing}
+            onRefresh={refreshAll}
+            tintColor="#0B1C5A"
+          />
+        }
+      >
+        {!isAvailable && (
           <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="information-circle" size={20} color="#EF4444" />
-            <Text style={{ color: '#B91C1C', fontSize: 13, flex: 1, fontWeight: '500' }}>You are currently offline. You will not receive any new consultation requests.</Text>
+            <Text style={{ color: '#B91C1C', fontSize: 13, flex: 1, fontWeight: '500' }}>
+              You are on vacation mode. You will not appear in searches or receive new consultation requests.
+            </Text>
           </View>
         )}
-        
+
         {/* Top Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Total Consultations</Text>
-            <Text style={styles.statValue}>452</Text>
+            <Text style={styles.statLabel}>Completed Consultations</Text>
+            <Text style={styles.statValue}>{past.isLoading ? '—' : completedCount}</Text>
             <View style={styles.statTrendRow}>
-              <Ionicons name="trending-up" size={12} color="#10B981" />
-              <Text style={styles.statTrend}>+18% this month</Text>
+              <Ionicons name="checkmark-done-outline" size={12} color="#10B981" />
+              <Text style={styles.statTrend}>Lifetime sessions</Text>
             </View>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Gross Earnings</Text>
-            <Text style={styles.statValue}>₦14,250</Text>
+            <Text style={styles.statValue}>
+              {past.isLoading ? '—' : `₦${grossEarnings.toLocaleString()}`}
+            </Text>
             <View style={styles.statTrendRow}>
               <Ionicons name="cash-outline" size={12} color="#4B5563" />
               <Text style={styles.statNeutral}>Lifetime volume</Text>
@@ -76,16 +178,20 @@ export default function DashboardScreen() {
         {/* Wallet Balance Card */}
         <View style={styles.walletCard}>
           <Text style={styles.walletLabel}>Current Wallet Balance</Text>
-          <Text style={styles.walletBalance}>₦2,332,956.27</Text>
-          
+          <Text style={styles.walletBalance}>
+            {past.isLoading
+              ? '—'
+              : `₦${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </Text>
+
           <View style={styles.walletDivider} />
-          
+
           <View style={styles.walletFooter}>
             <View style={styles.walletDisclaimer}>
               <Ionicons name="information-circle-outline" size={14} color="#fff" style={{ opacity: 0.8 }} />
               <Text style={styles.walletDisclaimerText}>10% Platform Fee deducted{'\n'}automatically from earnings.</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(pharmacist)/wallet' as any)}>
               <Text style={styles.viewBreakdownText}>View Breakdown</Text>
             </TouchableOpacity>
           </View>
@@ -96,159 +202,128 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Active Consultation{'\n'}Requests</Text>
           <View style={styles.filtersRow}>
             <View style={[styles.filterPill, styles.filterPillActive]}>
-              <Text style={[styles.filterPillText, styles.filterPillTextActive]}>5 Urgent</Text>
+              <Text style={[styles.filterPillText, styles.filterPillTextActive]}>
+                {stats?.urgentPending ?? 0} Urgent
+              </Text>
             </View>
             <View style={styles.filterPill}>
-              <Text style={styles.filterPillText}>12 Total Pending</Text>
+              <Text style={styles.filterPillText}>{stats?.totalPending ?? 0} Total Pending</Text>
             </View>
           </View>
         </View>
 
         {/* Inquiries List */}
-        <View style={styles.inquiriesList}>
-          
-          {/* Inquiry 1 */}
-          <View style={styles.inquiryCard}>
-            <View style={styles.inquiryHeader}>
-              <View style={styles.inquiryUserRow}>
-                <View style={styles.patientAvatar}>
-                  <Ionicons name="person-outline" size={16} color="#0B1C5A" />
-                </View>
-                <View>
-                  <Text style={styles.patientName}>Sarah J.</Text>
-                  <Text style={styles.patientMeta}>2 minutes ago • Patient Inquiry</Text>
-                </View>
-              </View>
-              <View style={styles.urgencyBadgeRed}>
-                <Text style={styles.urgencyTextRed}>HIGH URGENCY</Text>
-              </View>
-            </View>
-            
-            <View style={styles.inquiryMessage}>
-              <Text style={styles.messageText}>
-                "Can I take this medication with grapefruit juice? The label is unclear and I'm worried about interactions."
-              </Text>
-            </View>
-
-            <View style={styles.inquiryFooter}>
-              <View style={styles.earningRow}>
-                <Ionicons name="cash-outline" size={16} color="#15803D" />
-                <Text style={styles.earningText}>₦3,500 Est.</Text>
-              </View>
-              {acceptedInquiries['1'] ? (
-                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
-                  <Text style={styles.startBtnText}>Join Session</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity style={styles.declineBtn}>
-                    <Text style={styles.declineBtnText}>Decline</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.startBtn} onPress={() => acceptInquiry('1')}>
-                    <Text style={styles.startBtnText}>Accept</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+        {dashboard.isLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#0B1C5A" />
           </View>
-
-          {/* Inquiry 2 */}
-          <View style={styles.inquiryCard}>
-            <View style={styles.inquiryHeader}>
-              <View style={styles.inquiryUserRow}>
-                <View style={[styles.patientAvatar, { backgroundColor: '#E0F2FE' }]}>
-                  <Ionicons name="person-outline" size={16} color="#0369A1" />
-                </View>
-                <View>
-                  <Text style={styles.patientName}>Marcus T.</Text>
-                  <Text style={styles.patientMeta}>15 minutes ago • Medication Clarification</Text>
-                </View>
-              </View>
-              <View style={styles.urgencyBadgeGray}>
-                <Text style={styles.urgencyTextGray}>NORMAL</Text>
-              </View>
-            </View>
-            
-            <View style={styles.inquiryMessage}>
-              <Text style={styles.messageText}>
-                "Is the Lisinopril I just received the same as my previous generic brand? The pill color is slightly different."
-              </Text>
-            </View>
-
-            <View style={styles.inquiryFooter}>
-              <View style={styles.earningRow}>
-                <Ionicons name="cash-outline" size={16} color="#15803D" />
-                <Text style={styles.earningText}>₦3,500 Est.</Text>
-              </View>
-              {acceptedInquiries['2'] ? (
-                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
-                  <Text style={styles.startBtnText}>Join Session</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity style={styles.declineBtn}>
-                    <Text style={styles.declineBtnText}>Decline</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.startBtn} onPress={() => acceptInquiry('2')}>
-                    <Text style={styles.startBtnText}>Accept</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+        ) : dashboard.error ? (
+          <View style={{ paddingVertical: 30, alignItems: 'center', paddingHorizontal: 20 }}>
+            <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
+            <Text style={{ marginTop: 10, color: '#6B7280', textAlign: 'center' }}>{dashboard.error}</Text>
+            <TouchableOpacity onPress={refreshAll} style={{ marginTop: 12 }}>
+              <Text style={{ color: '#0B1C5A', fontWeight: '700' }}>Try again</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Inquiry 3 */}
-          <View style={styles.inquiryCard}>
-            <View style={styles.inquiryHeader}>
-              <View style={styles.inquiryUserRow}>
-                <View style={[styles.patientAvatar, { backgroundColor: '#E0F2FE' }]}>
-                  <Ionicons name="person-outline" size={16} color="#0369A1" />
-                </View>
-                <View>
-                  <Text style={styles.patientName}>Elena R.</Text>
-                  <Text style={styles.patientMeta}>1 hour ago • Side Effects Support</Text>
-                </View>
-              </View>
-              <View style={styles.urgencyBadgeGray}>
-                <Text style={styles.urgencyTextGray}>NORMAL</Text>
-              </View>
-            </View>
-            
-            <View style={styles.inquiryMessage}>
-              <Text style={styles.messageText}>
-                "Confirming common side effects of the new booster shot. I have some mild fatigue and want to know if that's expected."
-              </Text>
-            </View>
-
-            <View style={styles.inquiryFooter}>
-              <View style={styles.earningRow}>
-                <Ionicons name="cash-outline" size={16} color="#15803D" />
-                <Text style={styles.earningText}>₦6,500 Est.</Text>
-              </View>
-              {acceptedInquiries['3'] ? (
-                <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
-                  <Text style={styles.startBtnText}>Join Session</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity style={styles.declineBtn}>
-                    <Text style={styles.declineBtnText}>Decline</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.startBtn} onPress={() => acceptInquiry('3')}>
-                    <Text style={styles.startBtnText}>Accept</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+        ) : visibleRequests.length === 0 ? (
+          <View style={{ paddingVertical: 30, alignItems: 'center', paddingHorizontal: 20 }}>
+            <Ionicons name="checkmark-done-circle-outline" size={32} color="#9CA3AF" />
+            <Text style={{ marginTop: 10, color: '#6B7280', textAlign: 'center' }}>
+              No pending requests right now. New bookings will appear here in real time.
+            </Text>
           </View>
+        ) : (
+          <View style={styles.inquiriesList}>
+            {visibleRequests.map((request) => {
+              const accepted = acceptedIds[request.id];
+              const acting = pendingActions.actingId === request.id;
+              return (
+                <View key={request.id} style={styles.inquiryCard}>
+                  <View style={styles.inquiryHeader}>
+                    <View style={styles.inquiryUserRow}>
+                      {request.patient.profileImage ? (
+                        <Image source={{ uri: request.patient.profileImage }} style={styles.patientAvatar} />
+                      ) : (
+                        <View style={styles.patientAvatar}>
+                          <Ionicons name="person-outline" size={16} color="#0B1C5A" />
+                        </View>
+                      )}
+                      <View>
+                        <Text style={styles.patientName}>{request.patient.fullName ?? 'Patient'}</Text>
+                        <Text style={styles.patientMeta}>
+                          {formatRelativeTime(request.createdAt)} • {request.referenceCode}
+                        </Text>
+                      </View>
+                    </View>
+                    {request.urgency === 'high' ? (
+                      <View style={styles.urgencyBadgeRed}>
+                        <Text style={styles.urgencyTextRed}>HIGH URGENCY</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.urgencyBadgeGray}>
+                        <Text style={styles.urgencyTextGray}>NORMAL</Text>
+                      </View>
+                    )}
+                  </View>
 
-          {/* View More */}
-          <TouchableOpacity style={styles.viewMoreBtn}>
-            <Text style={styles.viewMoreText}>View 8 More Pending Inquiries</Text>
-            <Ionicons name="arrow-forward" size={18} color="#0B1C5A" />
-          </TouchableOpacity>
+                  <View style={styles.inquiryMessage}>
+                    <Text style={styles.messageText}>"{request.reason}"</Text>
+                  </View>
 
-        </View>
+                  <View style={styles.inquiryFooter}>
+                    <View style={styles.earningRow}>
+                      <Ionicons name="cash-outline" size={16} color="#15803D" />
+                      <Text style={styles.earningText}>₦{request.feeAmount.toLocaleString()}</Text>
+                    </View>
+                    {accepted ? (
+                      <TouchableOpacity
+                        style={styles.startBtn}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/(pharmacist)/consults/consultation-live',
+                            params: { id: request.id },
+                          } as any)
+                        }
+                      >
+                        <Text style={styles.startBtnText}>Join Session</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity
+                          style={styles.declineBtn}
+                          disabled={acting}
+                          onPress={() => handleDecline(request)}
+                        >
+                          <Text style={styles.declineBtnText}>Decline</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.startBtn}
+                          disabled={acting}
+                          onPress={() => handleAccept(request)}
+                        >
+                          {acting ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={styles.startBtnText}>Accept</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+
+            {remainingCount > 0 && (
+              <TouchableOpacity style={styles.viewMoreBtn} onPress={() => router.push('/(pharmacist)/consults' as any)}>
+                <Text style={styles.viewMoreText}>
+                  View {remainingCount} More Pending {remainingCount === 1 ? 'Inquiry' : 'Inquiries'}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#0B1C5A" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

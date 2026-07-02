@@ -2,15 +2,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+
+function formatNotifTime(isoDate: string): string {
+  const diffMins = Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  
-  const [activeFilter, setActiveFilter] = useState('All');
-  const filters = ['All', 'Bookings', 'Earnings', 'System'];
+  const { notifications, markAllRead } = useSocket();
+
+  useEffect(() => {
+    markAllRead();
+  }, [markAllRead, notifications.length]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -25,10 +37,13 @@ export default function NotificationsScreen() {
             <View style={styles.notifDot} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.back()}>
-            <Image 
-              source={{ uri: user?.profileImage || 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }} 
-              style={styles.headerAvatar} 
-            />
+            {user?.profileImage ? (
+              <Image source={{ uri: user.profileImage }} style={styles.headerAvatar} />
+            ) : (
+              <View style={[styles.headerAvatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person-outline" size={16} color="#0B1C5A" />
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -36,94 +51,44 @@ export default function NotificationsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         <Text style={styles.pageTitle}>Notifications</Text>
-        <Text style={styles.pageSubtitle}>Stay updated on your consultations and earnings.</Text>
-
-        {/* Filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContainer}>
-          {filters.map((f) => (
-            <TouchableOpacity 
-              key={f} 
-              style={[styles.filterPill, activeFilter === f && styles.filterPillActive]}
-              onPress={() => setActiveFilter(f)}
-            >
-              <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <Text style={styles.pageSubtitle}>Stay updated on your consultation requests in real time.</Text>
 
         {/* Notifications List */}
-        
-        {/* New Consultation Request */}
-        <View style={styles.notifCard}>
-          <View style={styles.notifHeader}>
-            <View style={styles.notifHeaderLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: '#CCFBF1' }]}>
-                <Ionicons name="medkit-outline" size={20} color="#0F766E" />
-              </View>
-              <Text style={styles.notifTitle}>New Consultation Request</Text>
-            </View>
-            <Text style={styles.timeText}>4m ago</Text>
+        {notifications.length === 0 ? (
+          <View style={{ paddingVertical: 60, alignItems: 'center', paddingHorizontal: 20 }}>
+            <Ionicons name="notifications-off-outline" size={34} color="#94A3B8" />
+            <Text style={{ marginTop: 12, color: '#64748B', textAlign: 'center', lineHeight: 20 }}>
+              No notifications yet. New consultation requests will appear here the moment a patient books you.
+            </Text>
           </View>
-          <Text style={styles.notifDesc}>
-            <Text style={{ color: '#94A3B8' }}>Patient </Text>
-            <Text style={{ color: '#1E293B', fontWeight: '600' }}>John Doe</Text>
-            <Text style={{ color: '#94A3B8' }}> requested a drug-specific inquiry.</Text>
-          </Text>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Text style={styles.actionBtnText}>View Details</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Payment Received */}
-        <View style={styles.notifCard}>
-          <View style={styles.notifHeader}>
-            <View style={styles.notifHeaderLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="wallet-outline" size={20} color="#475569" />
+        ) : (
+          notifications.map((n) => (
+            <View key={n.id} style={styles.notifCard}>
+              <View style={styles.notifHeader}>
+                <View style={styles.notifHeaderLeft}>
+                  <View style={[styles.iconWrap, { backgroundColor: n.type === 'new_consultation' ? '#CCFBF1' : '#F1F5F9' }]}>
+                    <Ionicons
+                      name={n.type === 'new_consultation' ? 'medkit-outline' : 'calendar-outline'}
+                      size={20}
+                      color={n.type === 'new_consultation' ? '#0F766E' : '#475569'}
+                    />
+                  </View>
+                  <Text style={styles.notifTitle}>{n.title}</Text>
+                </View>
+                <Text style={styles.timeText}>{formatNotifTime(n.createdAt)}</Text>
               </View>
-              <Text style={styles.notifTitle}>Payment Received</Text>
+              <Text style={styles.notifDesc}>{n.body}</Text>
+              {n.type === 'new_consultation' && (
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => router.push('/(pharmacist)/consults' as any)}
+                >
+                  <Text style={styles.actionBtnText}>View Details</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={styles.timeText}>2h ago</Text>
-          </View>
-          <Text style={styles.notifDesc}>
-            Payout of <Text style={{ color: '#0B1C5A', fontWeight: '700' }}>₦8,500</Text> for consultation #MV-9920 has been processed to your wallet.
-          </Text>
-        </View>
-
-        {/* Consultation Reminder */}
-        <View style={styles.notifCard}>
-          <View style={styles.notifHeader}>
-            <View style={styles.notifHeaderLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: '#FFEDD5' }]}>
-                <Ionicons name="alarm-outline" size={20} color="#C2410C" />
-              </View>
-              <Text style={styles.notifTitle}>Consultation Reminder</Text>
-            </View>
-            <Text style={styles.timeText}>Earlier</Text>
-          </View>
-          <Text style={styles.notifDesc}>
-            Upcoming session with <Text style={{ color: '#1E293B', fontWeight: '600' }}>Sarah Jenkins</Text> in 30 minutes.
-          </Text>
-          <TouchableOpacity style={styles.outlineBtn}>
-            <Text style={styles.outlineBtnText}>Prepare</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Verification Approved */}
-        <View style={styles.notifCard}>
-          <View style={styles.notifHeader}>
-            <View style={styles.notifHeaderLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="checkmark-seal-outline" size={20} color="#475569" />
-              </View>
-              <Text style={styles.notifTitle}>Verification Approved</Text>
-            </View>
-            <Text style={styles.timeText}>Yesterday</Text>
-          </View>
-          <Text style={styles.notifDesc}>
-            Your updated license document has been verified.
-          </Text>
-        </View>
+          ))
+        )}
 
       </ScrollView>
     </SafeAreaView>

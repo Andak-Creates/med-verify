@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,16 +14,33 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { useConsultation } from '@/hooks/useConsultations';
+import * as consultationsService from '@/services/consultations.service';
 
 export default function PostReviewScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { consultation } = useConsultation(id);
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    // In a real app, this submits to the backend
-    router.replace('/(user)/home' as any);
+  const handleSubmit = async () => {
+    if (!id || rating === 0) return;
+    setSubmitting(true);
+    try {
+      await consultationsService.submitReview(id, rating, feedback.trim() || undefined);
+      router.replace('/(user)/home' as any);
+    } catch (err) {
+      Alert.alert('Could not submit review', getApiErrorMessage(err, 'Please try again.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const pharmacistFirstName =
+    consultation?.pharmacist.fullName?.split(' ')[0] ?? 'your pharmacist';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -36,7 +55,7 @@ export default function PostReviewScreen() {
               <Ionicons name="checkmark-circle" size={56} color="#10B981" />
             </View>
             <Text style={styles.title}>Consultation Completed</Text>
-            <Text style={styles.subtitle}>How was your session with Dr. Julian?</Text>
+            <Text style={styles.subtitle}>How was your session with {pharmacistFirstName}?</Text>
           </View>
 
           {/* Rating Stars */}
@@ -78,8 +97,16 @@ export default function PostReviewScreen() {
 
           {/* Actions */}
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-              <Text style={styles.submitBtnText}>Submit Review</Text>
+            <TouchableOpacity
+              style={[styles.submitBtn, (rating === 0 || submitting) && { opacity: 0.6 }]}
+              onPress={handleSubmit}
+              disabled={rating === 0 || submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.submitBtnText}>Submit Review</Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.skipBtn} onPress={() => router.replace('/(user)/home' as any)}>
               <Text style={styles.skipBtnText}>Skip for now</Text>

@@ -9,9 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.medverify.app"
+      "bundleIdentifier": "com.medverify.app",
+      "bitcode": false
     },
     "android": {
+      "package": "com.medverify.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -19,7 +21,17 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "backgroundColor": "#00000000"
+      "backgroundColor": "#00000000",
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,11 +50,24 @@
         }
       ],
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "Allow MedVerify to access your microphone for audio consultations."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bdd28059-2981-4d00-aeb0-dd9ba6d7de5f"
+      }
+    },
+    "owner": "dollarsmoney"
   }
 }

@@ -14,11 +14,11 @@ import {
 import { FormError } from "../../components/FormError";
 import { useAuth } from "../../context/AuthContext";
 import { useGoogleSignIn } from "../../hooks/useGoogleSignIn";
-import { getApiErrorMessage } from "../../lib/api";
+import { getApiErrorMessage } from "@/api/client";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, googleAuth } = useAuth();
+  const { login, googleAuth, getPharmacistStatus } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -74,11 +74,18 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const user = await login(identifier.trim().toLowerCase(), password);
-      router.replace(
-        (user.role === "PHARMACIST"
-          ? "/(pharmacist)/dashboard"
-          : "/(user)/home") as any,
-      );
+      if (user.role === "PHARMACIST") {
+        // Pharmacists may only enter the app once their application is
+        // APPROVED — otherwise show them their application status.
+        const { status } = await getPharmacistStatus();
+        router.replace(
+          (status === "APPROVED"
+            ? "/(pharmacist)/dashboard"
+            : "/(onboarding)/pharmacist/verification-pending") as any,
+        );
+        return;
+      }
+      router.replace("/(user)/home" as any);
     } catch (err) {
       setFormError(
         getApiErrorMessage(

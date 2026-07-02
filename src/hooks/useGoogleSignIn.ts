@@ -6,13 +6,20 @@ import * as Google from 'expo-auth-session/providers/google';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+const isConfigured = Boolean(GOOGLE_CLIENT_ID);
+
+// expo-auth-session throws synchronously during render if no client ID is
+// supplied, so a placeholder keeps the hook callable when Google sign-in
+// hasn't been configured yet. `ready` reflects whether it's really usable.
+const PLACEHOLDER_CLIENT_ID = "not-configured.apps.googleusercontent.com";
 
 export function useGoogleSignIn(onIdToken: (idToken: string) => void, onError?: (message: string) => void) {
+  const clientId = GOOGLE_CLIENT_ID ?? PLACEHOLDER_CLIENT_ID;
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
-    webClientId: GOOGLE_CLIENT_ID,
-    androidClientId: GOOGLE_CLIENT_ID,
-    iosClientId: GOOGLE_CLIENT_ID,
+    clientId,
+    webClientId: clientId,
+    androidClientId: clientId,
+    iosClientId: clientId,
     // Always show Google's account chooser instead of silently reusing
     // whichever Google account the browser already has an active session for.
     selectAccount: true,
@@ -45,9 +52,17 @@ export function useGoogleSignIn(onIdToken: (idToken: string) => void, onError?: 
     // blocked; nothing to report, but it must not look like a hang.
   }, [response]);
 
+  const guardedPromptAsync: typeof promptAsync = async (...args) => {
+    if (!isConfigured) {
+      onErrorRef.current?.("Google sign-in is not available right now. Please use email and password.");
+      return { type: "dismiss" } as Awaited<ReturnType<typeof promptAsync>>;
+    }
+    return promptAsync(...args);
+  };
+
   return {
-    ready: Boolean(request),
-    promptAsync,
+    ready: isConfigured && Boolean(request),
+    promptAsync: guardedPromptAsync,
     response,
   };
 }

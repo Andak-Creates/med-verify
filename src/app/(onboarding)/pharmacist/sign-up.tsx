@@ -1,4 +1,3 @@
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -13,20 +12,40 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { FormError } from '../../../components/FormError';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { pharmacistSignup } = useAuth();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (password.length < 8) {
+      setFormError('Password must be at least 8 characters.');
+      return;
+    }
+    setFormError(null);
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await pharmacistSignup(trimmedEmail, password, phone.trim());
+      router.push({
+        pathname: '/(onboarding)/pharmacist/otp' as any,
+        params: { email: trimmedEmail },
+      });
+    } catch (err) {
+      setFormError(
+        getApiErrorMessage(err, 'Could not create your account. That email may already be in use.'),
+      );
+    } finally {
       setLoading(false);
-      router.push('/(onboarding)/pharmacist/otp' as any);
-    }, 1000);
+    }
   };
 
   return (
@@ -82,6 +101,8 @@ export default function SignupScreen() {
               />
             </View>
 
+            <FormError message={formError} />
+
             {/* Sign Up Button */}
             <Pressable
               onPress={handleSignup}
@@ -100,25 +121,8 @@ export default function SignupScreen() {
             </Pressable>
           </View>
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Buttons */}
-          <View style={styles.socialGroup}>
-            <Pressable style={({ pressed }) => [styles.socialBtn, styles.googleBtn, pressed && styles.socialBtnPressed]}>
-              <FontAwesome name="google" size={20} color="#DB4437" />
-              <Text style={styles.googleBtnText}>Google</Text>
-            </Pressable>
-
-            <Pressable style={({ pressed }) => [styles.socialBtn, styles.appleBtn, pressed && styles.socialBtnPressed]}>
-              <FontAwesome name="apple" size={20} color="#fff" />
-              <Text style={styles.appleBtnText}>Apple</Text>
-            </Pressable>
-          </View>
+          {/* Pharmacists must register with email/password — social sign-in is
+              blocked by the backend for professional accounts. */}
 
           {/* Login Link */}
           <View style={styles.loginRow}>
@@ -197,57 +201,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#6B7280',
-    fontSize: 14,
-  },
-  socialGroup: {
-    gap: 12,
-    marginBottom: 40,
-  },
-  socialBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  socialBtnPressed: {
-    opacity: 0.8,
-  },
-  googleBtn: {
-    backgroundColor: '#fff',
-    borderColor: '#E5E7EB',
-  },
-  googleBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-    marginLeft: 10,
-  },
-  appleBtn: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
-  },
-  appleBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-    marginLeft: 10,
-    letterSpacing: 0.5,
   },
   loginRow: {
     flexDirection: 'row',

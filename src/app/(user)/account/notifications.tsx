@@ -1,8 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSocket, type AppNotification } from '../../../context/SocketContext';
+
+const NOTIF_DISPLAY: Record<AppNotification['type'], { icon: string; color: string; bg: string }> = {
+  new_consultation: { icon: 'calendar', color: '#0B1C5A', bg: '#EEF1FB' },
+  consultation_accepted: { icon: 'checkmark-circle', color: '#16a34a', bg: '#F0FDF4' },
+  consultation_declined: { icon: 'close-circle', color: '#dc2626', bg: '#FEF2F2' },
+};
+
+function formatNotifTime(isoDate: string): string {
+  const diffMins = Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 const NOTIFICATION_GROUPS = [
   {
@@ -28,16 +44,14 @@ const NOTIFICATION_GROUPS = [
   },
 ];
 
-const NOTIF_DATA = [
-  { id: '1', icon: 'checkmark-circle', color: '#16a34a', bg: '#F0FDF4', title: 'Scan Verified', body: 'Paracetamol BP 500mg — AUTHENTIC', time: '2h ago' },
-  { id: '2', icon: 'warning',          color: '#dc2626', bg: '#FEF2F2', title: 'Counterfeit Detected', body: 'Chloroquine 250mg flagged as FAKE', time: 'Yesterday' },
-  { id: '4', icon: 'close-circle',     color: '#dc2626', bg: '#FEF2F2', title: 'Consultation Declined', body: 'Dr. Okafor is currently unavailable. Please request another pharmacist.', time: 'Yesterday' },
-  { id: '3', icon: 'calendar',         color: '#0B1C5A', bg: '#EEF1FB', title: 'Consultation Tomorrow', body: 'Audio call with Dr. Okafor at 10 AM', time: 'Jun 3' },
-];
-
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { notifications, markAllRead } = useSocket();
   const [tab, setTab] = useState<'inbox' | 'settings'>('inbox');
+
+  useEffect(() => {
+    markAllRead();
+  }, [markAllRead, notifications.length]);
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
     scan_result: true, counterfeit: true, consultation: true,
     pharmacy_news: false, login_alert: true, promo: false,
@@ -68,18 +82,30 @@ export default function NotificationsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {tab === 'inbox' ? (
           <View style={{ padding: 20, gap: 10 }}>
-            {NOTIF_DATA.map(n => (
-              <View key={n.id} style={styles.notifCard}>
-                <View style={[styles.notifIcon, { backgroundColor: n.bg }]}>
-                  <Ionicons name={n.icon as any} size={22} color={n.color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.notifTitle}>{n.title}</Text>
-                  <Text style={styles.notifBody}>{n.body}</Text>
-                  <Text style={styles.notifTime}>{n.time}</Text>
-                </View>
+            {notifications.length === 0 ? (
+              <View style={{ paddingVertical: 50, alignItems: 'center', paddingHorizontal: 20 }}>
+                <Ionicons name="notifications-off-outline" size={34} color="#9CA3AF" />
+                <Text style={{ marginTop: 12, color: '#6B7280', textAlign: 'center', lineHeight: 20 }}>
+                  No notifications yet. Booking updates will appear here in real time.
+                </Text>
               </View>
-            ))}
+            ) : (
+              notifications.map((n) => {
+                const display = NOTIF_DISPLAY[n.type];
+                return (
+                  <View key={n.id} style={styles.notifCard}>
+                    <View style={[styles.notifIcon, { backgroundColor: display.bg }]}>
+                      <Ionicons name={display.icon as any} size={22} color={display.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifTitle}>{n.title}</Text>
+                      <Text style={styles.notifBody}>{n.body}</Text>
+                      <Text style={styles.notifTime}>{formatNotifTime(n.createdAt)}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
         ) : (
           <View style={{ padding: 20, gap: 20 }}>

@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -13,6 +17,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { useAuth } from '../../../context/AuthContext';
+import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -122,9 +129,86 @@ function TimePickerModal({ visible, title, hour, minute, onConfirm, onClose }: T
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { profile, isLoading, error, update, reload } = usePharmacistProfile();
+  const { uploadAvatar } = useAuth();
 
+  const [fullName, setFullName] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [bio, setBio] = useState('');
+  const [pharmacyName, setPharmacyName] = useState('');
+  const [pharmacyAddress, setPharmacyAddress] = useState('');
   const [vacationMode, setVacationMode] = useState(false);
   const [slots, setSlots] = useState<DaySlot[]>(DEFAULT_SLOTS);
+  const [saving, setSaving] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Prefill the form once the profile loads.
+  useEffect(() => {
+    if (!profile) return;
+    setFullName(profile.fullName ?? '');
+    setSpecialty(profile.specialty ?? '');
+    setBio(profile.bio ?? '');
+    setPharmacyName(profile.pharmacyName ?? '');
+    setPharmacyAddress(profile.pharmacyAddress ?? '');
+    setVacationMode(profile.vacationMode);
+    setAvatarUri(profile.profileImage ?? null);
+    if (profile.workingHours && profile.workingHours.length > 0) {
+      setSlots(profile.workingHours);
+    }
+  }, [profile]);
+
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to add a profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const fileName = asset.fileName ?? `avatar-${Date.now()}.jpg`;
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
+    setUploadingAvatar(true);
+    try {
+      const updated = await uploadAvatar({
+        uri: asset.uri,
+        name: fileName,
+        type: asset.mimeType ?? `image/${ext}`,
+      });
+      setAvatarUri(updated.profileImage);
+      reload();
+    } catch (err) {
+      Alert.alert('Upload failed', getApiErrorMessage(err, 'Could not upload your photo.'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await update({
+        fullName: fullName.trim(),
+        specialty: specialty.trim(),
+        bio: bio.trim(),
+        pharmacyName: pharmacyName.trim(),
+        pharmacyAddress: pharmacyAddress.trim(),
+        vacationMode,
+        workingHours: slots,
+      });
+      router.back();
+    } catch (err) {
+      Alert.alert('Could not save', getApiErrorMessage(err, 'Please try again.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Modal state
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -174,19 +258,78 @@ export default function EditProfileScreen() {
 
         <Text style={styles.screenSubtitle}>Manage your professional information and availability.</Text>
 
+        {error && (
+          <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, marginBottom: 16 }}>
+            <Text style={{ color: '#B91C1C', fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
+
         {/* Professional Details */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Professional Details</Text>
 
+          <TouchableOpacity style={styles.avatarUpload} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarCircle} />
+            ) : (
+              <View style={[styles.avatarCircle, styles.avatarPlaceholder]}>
+                <Ionicons name="person" size={36} color="#94A3B8" />
+              </View>
+            )}
+            <View style={styles.avatarAddBtn}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="e.g. Pharm. John Doe"
+            placeholderTextColor="#94A3B8"
+          />
+
           <Text style={styles.label}>Specialty</Text>
-          <TextInput style={styles.input} defaultValue="Clinical Pharmacy Specialist" />
+          <TextInput
+            style={styles.input}
+            value={specialty}
+            onChangeText={setSpecialty}
+            placeholder="e.g. Clinical Pharmacy Specialist"
+            placeholderTextColor="#94A3B8"
+          />
 
           <Text style={styles.label}>About</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             multiline
             numberOfLines={4}
-            defaultValue="Over 12 years of experience in high-stakes clinical environments. Dedicated to patient safety and precise medication verification."
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Tell patients about your experience…"
+            placeholderTextColor="#94A3B8"
+          />
+
+          <Text style={styles.label}>Pharmacy Name</Text>
+          <TextInput
+            style={styles.input}
+            value={pharmacyName}
+            onChangeText={setPharmacyName}
+            placeholder="e.g. WellSpring Pharmacy"
+            placeholderTextColor="#94A3B8"
+          />
+
+          <Text style={styles.label}>Pharmacy Address</Text>
+          <TextInput
+            style={styles.input}
+            value={pharmacyAddress}
+            onChangeText={setPharmacyAddress}
+            placeholder="Street, city"
+            placeholderTextColor="#94A3B8"
           />
         </View>
 
@@ -210,8 +353,11 @@ export default function EditProfileScreen() {
 
           <Text style={styles.label}>Timezone</Text>
           <View style={styles.dropdownInput}>
-            <Text style={styles.dropdownText}>West Africa Standard Time (WAT) – GMT+1</Text>
-            <Ionicons name="chevron-down" size={18} color="#64748B" />
+            <Text style={styles.dropdownText}>
+              {profile?.timezone === 'Africa/Lagos' || !profile?.timezone
+                ? 'West Africa Standard Time (WAT) – GMT+1'
+                : profile.timezone}
+            </Text>
           </View>
 
           <Text style={[styles.label, { marginTop: 16, marginBottom: 4 }]}>Working Hours</Text>
@@ -259,8 +405,16 @@ export default function EditProfileScreen() {
 
         {/* Actions */}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.actionBtn, styles.saveBtn]} onPress={() => router.back()}>
-            <Text style={styles.saveBtnText}>Save Changes</Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.saveBtn, (saving || isLoading) && { opacity: 0.7 }]}
+            onPress={handleSave}
+            disabled={saving || isLoading}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.saveBtnText}>Save Changes</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={() => router.back()}>
             <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -302,6 +456,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#0B1C5A', marginBottom: 16 },
+  avatarUpload: { alignSelf: 'center', marginBottom: 16 },
+  avatarCircle: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  avatarPlaceholder: { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
+  avatarAddBtn: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
   label: { fontSize: 12, fontWeight: '700', color: '#64748B', marginBottom: 6 },
   input: {
     borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10,

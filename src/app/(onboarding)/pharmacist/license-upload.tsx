@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,14 +16,65 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { FormError } from '../../../components/FormError';
+import { useAuth } from '../../../context/AuthContext';
+import type { UploadableFile } from '@/types/api';
 
 export default function LicenseUploadScreen() {
   const router = useRouter();
+  const { submitPharmacistCredentials } = useAuth();
   const [licenseNumber, setLicenseNumber] = useState('');
   const [ninNumber, setNinNumber] = useState('');
+  const [certificate, setCertificate] = useState<UploadableFile | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleSubmit = () => {
-    router.push('/(onboarding)/pharmacist/verification-pending' as any);
+  const handlePickCertificate = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to upload your certificate.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const fileName = asset.fileName ?? `certificate-${Date.now()}.jpg`;
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
+    setCertificate({
+      uri: asset.uri,
+      name: fileName,
+      type: asset.mimeType ?? `image/${ext}`,
+    });
+    setFormError(null);
+  };
+
+  const handleSubmit = async () => {
+    if (!ninNumber.trim()) {
+      setFormError('Your NIN is required.');
+      return;
+    }
+    if (!licenseNumber.trim()) {
+      setFormError('Your PCN licence number is required.');
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      await submitPharmacistCredentials({
+        nin: ninNumber.trim(),
+        pcn: licenseNumber.trim(),
+        certificate: certificate ?? undefined,
+      });
+      router.push('/(onboarding)/pharmacist/verification-pending' as any);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not submit your documents. Please try again.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -36,15 +91,29 @@ export default function LicenseUploadScreen() {
 
           {/* Certificate Upload */}
           <Text style={styles.label}>Pharmacy Council of Nigeria (PCN) Certificate</Text>
-          <Pressable style={styles.uploadBox}>
-            <View style={styles.uploadIconWrap}>
-              <Ionicons name="document-text" size={24} color="#312E81" />
-              <View style={styles.uploadArrow}>
-                <Ionicons name="arrow-up" size={12} color="#fff" />
-              </View>
-            </View>
-            <Text style={styles.uploadTitle}>Tap to upload or drag & drop</Text>
-            <Text style={styles.uploadSub}>PDF, JPG or PNG (Max 10MB)</Text>
+          <Pressable style={styles.uploadBox} onPress={handlePickCertificate}>
+            {certificate ? (
+              <>
+                <Image
+                  source={{ uri: certificate.uri }}
+                  style={{ width: 120, height: 90, borderRadius: 10, marginBottom: 12 }}
+                  resizeMode="cover"
+                />
+                <Text style={styles.uploadTitle}>{certificate.name}</Text>
+                <Text style={styles.uploadSub}>Tap to choose a different image</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.uploadIconWrap}>
+                  <Ionicons name="document-text" size={24} color="#312E81" />
+                  <View style={styles.uploadArrow}>
+                    <Ionicons name="arrow-up" size={12} color="#fff" />
+                  </View>
+                </View>
+                <Text style={styles.uploadTitle}>Tap to upload</Text>
+                <Text style={styles.uploadSub}>JPG, PNG or WEBP (Max 10MB)</Text>
+              </>
+            )}
           </Pressable>
 
           {/* License Number Input */}
@@ -79,18 +148,25 @@ export default function LicenseUploadScreen() {
             <Text style={styles.encryptionText}>AES-256 ENCRYPTED</Text>
           </View>
 
+          <FormError message={formError} />
+
           {/* Submit Button */}
           <Pressable
             onPress={handleSubmit}
+            disabled={submitting}
             style={({ pressed }) => [
               styles.submitBtn,
-              pressed && styles.submitBtnPressed
+              (pressed || submitting) && styles.submitBtnPressed
             ]}
           >
-            <View style={styles.btnContent}>
-              <Text style={styles.submitBtnText}>Submit for Review</Text>
-              <Ionicons name="send" size={18} color="#fff" style={{ transform: [{ rotate: '-45deg' }], marginTop: -2 }} />
-            </View>
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={styles.btnContent}>
+                <Text style={styles.submitBtnText}>Submit for Review</Text>
+                <Ionicons name="send" size={18} color="#fff" style={{ transform: [{ rotate: '-45deg' }], marginTop: -2 }} />
+              </View>
+            )}
           </Pressable>
 
           {/* Verification Process Info */}

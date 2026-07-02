@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -16,55 +16,54 @@ export default function RoleSelectScreen() {
   };
 
   return (
-    <View className="flex-1 px-6 pt-20 pb-10">
-      
+    <View style={styles.container}>
+
       {/* Header */}
-      <View className="flex-row items-center mb-6">
-        <View className="bg-[#0b1c5a] w-10 h-10 rounded-full items-center justify-center mr-3">
-          <Text className="text-white font-bold text-sm">✓</Text>
+      <View style={styles.header}>
+        <View style={styles.logoBadge}>
+          <Text style={styles.logoCheck}>✓</Text>
         </View>
-        <Text className="text-2xl font-extrabold text-[#0b1c5a]">MedVerify</Text>
+        <Text style={styles.logoText}>MedVerify</Text>
       </View>
 
-      <View className="flex-1 justify-center">
-        <Text className="text-3xl font-extrabold text-[#0b1c5a] leading-tight mb-2">
-          Welcome to MedVerify.
-        </Text>
-        <Text className="text-2xl font-bold text-[#0b1c5a] mb-10">
-          Choose your role to continue.
-        </Text>
+      <View style={styles.content}>
+        <Text style={styles.title}>Welcome to MedVerify.</Text>
+        <Text style={styles.subtitle}>Choose your role to continue.</Text>
 
         {/* Role Options */}
         <View>
-          <Pressable 
+          <Pressable
             onPress={() => setSelectedRole('user')}
-            className={`flex-row items-center p-6 rounded-3xl border ${
-              selectedRole === 'user' ? 'bg-white border-[#0b1c5a] shadow-lg' : 'bg-white/60 border-white/50 shadow-sm'
-            }`}
+            style={[
+              styles.roleCard,
+              selectedRole === 'user' ? styles.roleCardSelected : styles.roleCardDefault,
+            ]}
           >
-            <View className="w-12 h-12 rounded-full bg-gray-200/80 items-center justify-center mr-4">
+            <View style={styles.roleIcon}>
               <Ionicons name="person-outline" size={24} color="#0b1c5a" />
             </View>
-            <View className="flex-1">
-              <Text className="text-xl font-bold text-[#0b1c5a] mb-1">I am a User</Text>
-              <Text className="text-gray-600 text-sm leading-tight">
+            <View style={styles.roleTextContainer}>
+              <Text style={styles.roleTitle}>I am a User</Text>
+              <Text style={styles.roleDesc}>
                 Verify my medications and chat with health assistants.
               </Text>
             </View>
           </Pressable>
 
-          <Pressable 
+          <Pressable
             onPress={() => setSelectedRole('pharmacist')}
-            className={`flex-row items-center p-6 rounded-3xl border mt-5 ${
-              selectedRole === 'pharmacist' ? 'bg-white border-[#0b1c5a] shadow-lg' : 'bg-white/60 border-white/50 shadow-sm'
-            }`}
+            style={[
+              styles.roleCard,
+              styles.roleCardGap,
+              selectedRole === 'pharmacist' ? styles.roleCardSelected : styles.roleCardDefault,
+            ]}
           >
-            <View className="w-12 h-12 rounded-full bg-gray-200/80 items-center justify-center mr-4">
+            <View style={styles.roleIcon}>
               <Ionicons name="medkit-outline" size={24} color="#0b1c5a" />
             </View>
-            <View className="flex-1">
-              <Text className="text-xl font-bold text-[#0b1c5a] mb-1">I am a Pharmacist</Text>
-              <Text className="text-gray-600 text-sm leading-tight">
+            <View style={styles.roleTextContainer}>
+              <Text style={styles.roleTitle}>I am a Pharmacist</Text>
+              <Text style={styles.roleDesc}>
                 Manage consultations and verify professional requests.
               </Text>
             </View>
@@ -73,18 +72,127 @@ export default function RoleSelectScreen() {
       </View>
 
       {/* Continue Button */}
-      <Pressable 
+      <Pressable
         onPress={handleContinue}
         disabled={!selectedRole}
-        className={`w-full py-4 rounded-full items-center ${
-          selectedRole ? 'bg-[#0b1c5a]' : 'bg-[#0b1c5a]/50'
-        }`}
+        style={[styles.continueBtn, { opacity: selectedRole ? 1 : 0.5 }]}
       >
-        <Text className="text-white font-semibold text-lg">
-          Continue with identity
-        </Text>
+        <Text style={styles.continueBtnText}>Continue with identity</Text>
       </Pressable>
-
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logoBadge: {
+    backgroundColor: '#0b1c5a',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  logoCheck: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  logoText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0b1c5a',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#0b1c5a',
+    lineHeight: 36,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0b1c5a',
+    marginBottom: 40,
+  },
+  roleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  roleCardGap: {
+    marginTop: 20,
+  },
+  roleCardSelected: {
+    backgroundColor: '#ffffff',
+    borderColor: '#0b1c5a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  roleCardDefault: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderColor: 'rgba(255,255,255,0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  roleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(209,213,219,0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  roleTextContainer: {
+    flex: 1,
+  },
+  roleTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0b1c5a',
+    marginBottom: 4,
+  },
+  roleDesc: {
+    fontSize: 13,
+    color: '#4b5563',
+    lineHeight: 18,
+  },
+  continueBtn: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 999,
+    alignItems: 'center',
+    backgroundColor: '#0b1c5a',
+  },
+  continueBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 17,
+  },
+});
+

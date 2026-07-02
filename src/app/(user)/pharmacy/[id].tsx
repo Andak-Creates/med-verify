@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -10,48 +11,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { usePharmacist } from '@/hooks/usePharmacists';
+import type { ConsultationType } from '@/types/api';
 
-const PHARMACISTS: Record<string, {
-  name: string; title: string; specialty: string; rating: number;
-  patients: string; experience: string; bio: string;
-  tags: string[]; image: string; consultations: { icon: string; title: string; sub: string; price: string }[];
-}> = {
-  '1': {
-    name: 'Dr. Julian Okoro',
-    title: 'Clinical Pharmacist',
-    specialty: 'Specializing in clinical drug management and pediatric pharmaceutical care with over 12 years of verified practice.',
-    rating: 4.9,
-    patients: '1.2k',
-    experience: '12y',
-    bio: 'Dr. Okoro is a dedicated consultant known for precision in medication therapy management. He bridges the gap between diagnosis and recovery by ensuring patients understand their prescriptions and managing potential drug-drug interactions effectively.',
-    tags: ['PCN Certified', 'Clinical Pharmacist'],
-    image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80',
-    consultations: [
-      { icon: 'link', title: 'Drug Inquiry', sub: '15-min Quick Call', price: '₦3,000' },
-      { icon: 'medkit', title: 'Full Health Review', sub: '45-min Deep Dive', price: '₦10,000' },
-    ],
-  },
-  '2': {
-    name: 'Dr. Marcus Chen',
-    title: 'Geriatric Specialist',
-    specialty: 'Expert in Cardiology and elderly patient pharmaceutical management with over 10 years of practice.',
-    rating: 4.8,
-    patients: '980',
-    experience: '10y',
-    bio: 'Dr. Chen brings deep expertise in managing complex multi-drug regimens for older adults. He works closely with cardiologists to optimize medication protocols and reduce adverse drug events in geriatric care.',
-    tags: ['PCN Certified', 'Geriatric Specialist'],
-    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&q=80',
-    consultations: [
-      { icon: 'heart', title: 'Cardiac Medication Review', sub: '20-min Consultation', price: '₦4,500' },
-      { icon: 'medkit', title: 'Comprehensive Geriatric Assessment', sub: '60-min Session', price: '₦12,000' },
-    ],
-  },
-};
-
-export default function PharmacistProfileScreen() {
+export default function PharmacistDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const pharm = PHARMACISTS[id ?? '1'] ?? PHARMACISTS['1'];
+  const { pharmacist, isLoading, error, reload } = usePharmacist(id);
+
+  const handleBook = (consultationType: ConsultationType) => {
+    if (!pharmacist) return;
+    router.push({
+      pathname: '/(user)/pharmacy/book-consultation',
+      params: { pharmacistProfileId: pharmacist.id, consultationType },
+    } as any);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -61,93 +35,156 @@ export default function PharmacistProfileScreen() {
           <Ionicons name="chevron-back" size={22} color="#0B1C5A" />
         </Pressable>
         <Text style={styles.logoText}>MedVerify</Text>
-        <Pressable style={styles.iconButton}>
+        <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
           <Ionicons name="notifications-outline" size={20} color="#0B1C5A" />
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      {isLoading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#312E81" />
+        </View>
+      ) : error || !pharmacist ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 }}>
+          <Ionicons name="alert-circle-outline" size={36} color="#9CA3AF" />
+          <Text style={{ marginTop: 12, color: '#6B7280', textAlign: 'center' }}>
+            {error ?? 'Pharmacist not found.'}
+          </Text>
+          <TouchableOpacity onPress={reload} style={{ marginTop: 12 }}>
+            <Text style={{ color: '#312E81', fontWeight: '700' }}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* ── Pharmacist Hero ─────────────────────────── */}
+          <View style={styles.heroSection}>
+            <View style={styles.avatarWrap}>
+              {pharmacist.profileImage ? (
+                <Image source={{ uri: pharmacist.profileImage }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <Ionicons name="person-outline" size={44} color="#312E81" />
+                </View>
+              )}
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark" size={12} color="#fff" />
+              </View>
+            </View>
 
-        {/* ── Doctor Hero ─────────────────────────── */}
-        <View style={styles.heroSection}>
-          <View style={styles.avatarWrap}>
-            <Image source={{ uri: pharm.image }} style={styles.avatar} />
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark" size={12} color="#fff" />
+            <Text style={styles.docName}>{pharmacist.fullName ?? 'Pharmacist'}</Text>
+
+            <View style={styles.tagsRow}>
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>PCN Certified</Text>
+              </View>
+              {pharmacist.specialty && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>{pharmacist.specialty}</Text>
+                </View>
+              )}
+            </View>
+
+            {pharmacist.pharmacyName && (
+              <Text style={styles.specialtyText}>
+                {pharmacist.pharmacyName}
+                {pharmacist.pharmacyAddress ? ` • ${pharmacist.pharmacyAddress}` : ''}
+              </Text>
+            )}
+          </View>
+
+          {/* ── Stats Row ─────────────────────────────── */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Ionicons name="star-outline" size={22} color="#312E81" style={{ marginBottom: 6 }} />
+              <Text style={styles.statValue}>
+                {pharmacist.avgRating > 0 ? pharmacist.avgRating.toFixed(1) : '—'}
+              </Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Ionicons name="people-outline" size={22} color="#312E81" style={{ marginBottom: 6 }} />
+              <Text style={styles.statValue}>{pharmacist.totalConsultations}</Text>
+              <Text style={styles.statLabel}>Consults</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color="#312E81" style={{ marginBottom: 6 }} />
+              <Text style={styles.statValue}>{pharmacist.reviewCount}</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
             </View>
           </View>
 
-          <Text style={styles.docName}>{pharm.name}</Text>
+          {/* ── Professional Bio ──────────────────────── */}
+          {pharmacist.bio && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Professional Bio</Text>
+              <Text style={styles.cardBody}>{pharmacist.bio}</Text>
+            </View>
+          )}
 
-          <View style={styles.tagsRow}>
-            {pharm.tags.map(tag => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
+          {/* ── Availability notice ───────────────── */}
+          {pharmacist.vacationMode && (
+            <View style={[styles.card, { backgroundColor: '#FFF7ED' }]}>
+              <Text style={[styles.cardTitle, { color: '#C2410C' }]}>Currently Unavailable</Text>
+              <Text style={styles.cardBody}>
+                This pharmacist is on vacation and is not accepting new bookings right now.
+              </Text>
+            </View>
+          )}
 
-          <Text style={styles.specialtyText}>{pharm.specialty}</Text>
-        </View>
+          {/* ── Available Consultations ───────────────── */}
+          <Text style={styles.sectionHeading}>Available Consultations</Text>
 
-        {/* ── Stats Row ─────────────────────────────── */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Ionicons name="star-outline" size={22} color="#312E81" style={{ marginBottom: 6 }} />
-            <Text style={styles.statValue}>{pharm.rating}</Text>
-            <Text style={styles.statLabel}>Rating</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Ionicons name="people-outline" size={22} color="#312E81" style={{ marginBottom: 6 }} />
-            <Text style={styles.statValue}>{pharm.patients}</Text>
-            <Text style={styles.statLabel}>Patients</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={22} color="#312E81" style={{ marginBottom: 6 }} />
-            <Text style={styles.statValue}>{pharm.experience}</Text>
-            <Text style={styles.statLabel}>Exp.</Text>
-          </View>
-        </View>
-
-        {/* ── Professional Bio ──────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Professional Bio</Text>
-          <Text style={styles.cardBody}>{pharm.bio}</Text>
-        </View>
-
-        {/* ── Available Consultations ───────────────── */}
-        <Text style={styles.sectionHeading}>Available Consultations</Text>
-
-        {pharm.consultations.map((c, i) => (
           <TouchableOpacity
-            key={c.title}
-            style={[styles.consultCard, i === 1 && styles.consultCardDark]}
-            onPress={() => router.push({ pathname: '/(user)/pharmacy/book-consultation', params: { pharmacyId: id } } as any)}
+            style={styles.consultCard}
+            disabled={pharmacist.vacationMode}
+            onPress={() => handleBook('chat')}
           >
-            <View style={[styles.consultIcon, i === 1 && styles.consultIconDark]}>
-              <Ionicons name={c.icon as any} size={20} color={i === 1 ? '#fff' : '#312E81'} style={{ transform: [{ rotate: c.icon === 'link' ? '45deg' : '0deg' }] }} />
+            <View style={styles.consultIcon}>
+              <Ionicons name="link" size={20} color="#312E81" style={{ transform: [{ rotate: '45deg' }] }} />
             </View>
             <View style={styles.consultInfo}>
-              <Text style={[styles.consultTitle, i === 1 && styles.consultTitleDark]}>{c.title}</Text>
-              <Text style={[styles.consultSub, i === 1 && styles.consultSubDark]}>{c.sub}</Text>
+              <Text style={styles.consultTitle}>Drug Inquiry</Text>
+              <Text style={styles.consultSub}>Chat or audio session</Text>
             </View>
-            <Text style={[styles.consultPrice, i === 1 && styles.consultPriceDark]}>{c.price}</Text>
-
+            <Text style={styles.consultPrice}>₦{pharmacist.feeDrugInquiry.toLocaleString()}</Text>
             <TouchableOpacity
-              style={[styles.bookBtn, i === 1 && styles.bookBtnDark]}
-              onPress={() => router.push({ pathname: '/(user)/pharmacy/book-consultation', params: { pharmacyId: id } } as any)}
+              style={[styles.bookBtn, pharmacist.vacationMode && { opacity: 0.5 }]}
+              disabled={pharmacist.vacationMode}
+              onPress={() => handleBook('chat')}
             >
-              <Text style={[styles.bookBtnText, i === 1 && styles.bookBtnTextDark]}>
-                Book Now {i === 1 ? '🗓' : '→'}
-              </Text>
+              <Text style={styles.bookBtnText}>Book Now →</Text>
             </TouchableOpacity>
           </TouchableOpacity>
-        ))}
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          <TouchableOpacity
+            style={[styles.consultCard, styles.consultCardDark]}
+            disabled={pharmacist.vacationMode}
+            onPress={() => handleBook('both')}
+          >
+            <View style={[styles.consultIcon, styles.consultIconDark]}>
+              <Ionicons name="medkit" size={20} color="#fff" />
+            </View>
+            <View style={styles.consultInfo}>
+              <Text style={[styles.consultTitle, styles.consultTitleDark]}>Full Consultation</Text>
+              <Text style={[styles.consultSub, styles.consultSubDark]}>Chat + audio call session</Text>
+            </View>
+            <Text style={[styles.consultPrice, styles.consultPriceDark]}>
+              ₦{pharmacist.feeFullConsultation.toLocaleString()}
+            </Text>
+            <TouchableOpacity
+              style={[styles.bookBtn, styles.bookBtnDark, pharmacist.vacationMode && { opacity: 0.5 }]}
+              disabled={pharmacist.vacationMode}
+              onPress={() => handleBook('both')}
+            >
+              <Text style={styles.bookBtnText}>Book Now 🗓</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -166,9 +203,10 @@ const styles = StyleSheet.create({
   heroSection: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 28 },
   avatarWrap: { position: 'relative', marginBottom: 16 },
   avatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, elevation: 5 },
+  avatarFallback: { backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center' },
   verifiedBadge: { position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: '#312E81', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   docName: { fontSize: 24, fontWeight: '900', color: '#111827', marginBottom: 10, textAlign: 'center' },
-  tagsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  tagsRow: { flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap', justifyContent: 'center' },
   tag: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#EEF1FB', borderRadius: 20 },
   tagText: { fontSize: 12, fontWeight: '700', color: '#312E81' },
   specialtyText: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
@@ -201,5 +239,4 @@ const styles = StyleSheet.create({
   bookBtn: { backgroundColor: '#111827', height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   bookBtnDark: { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
   bookBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  bookBtnTextDark: { color: '#fff' },
 });

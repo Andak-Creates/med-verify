@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
-import { getApiErrorMessage } from "../../../lib/api";
+import { getApiErrorMessage } from "@/api/client";
 import { useGoogleSignIn } from "../../../hooks/useGoogleSignIn";
 import { FormError } from "../../../components/FormError";
 

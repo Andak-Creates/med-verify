@@ -2,6 +2,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -11,11 +12,34 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { forgotPassword } from '@/services/auth.service';
+import { FormError } from '../../components/FormError';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
+      setFormError('Enter your email address to continue.');
+      return;
+    }
+    setFormError(null);
+    setLoading(true);
+    try {
+      await forgotPassword(trimmed);
+      setSubmitted(true);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not send the reset email. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,14 +71,23 @@ export default function ForgotPasswordScreen() {
                   placeholder="Email Address"
                   placeholderTextColor="#8E9CB2"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    setFormError(null);
+                  }}
                   autoCapitalize="none"
                   keyboardType="email-address"
                 />
               </View>
 
-              <TouchableOpacity style={styles.btn} onPress={() => setSubmitted(true)}>
-                <Text style={styles.btnText}>Send Reset Link</Text>
+              <FormError message={formError} />
+
+              <TouchableOpacity style={styles.btn} onPress={handleSubmit} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnText}>Send Reset Link</Text>
+                )}
               </TouchableOpacity>
             </>
           ) : (

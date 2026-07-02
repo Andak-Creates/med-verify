@@ -3,7 +3,11 @@ import { Stack } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { ImageBackground, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { IncomingCallOverlay } from "../components/IncomingCallOverlay";
 import { AuthProvider } from "../context/AuthContext";
+import { CallProvider } from "../context/CallContext";
+import { SocketProvider } from "../context/SocketContext";
+import "../lib/webrtcGlobals";
 import "../global.css";
 
 // Must run as early as possible (before routing/rendering) so that when the
@@ -15,6 +19,8 @@ WebBrowser.maybeCompleteAuthSession();
 export default function RootLayout() {
   return (
     <AuthProvider>
+      <SocketProvider>
+      <CallProvider>
       <SafeAreaProvider style={{ flex: 1 }}>
         <ImageBackground
           source={require("../../assets/images/background.png")}
@@ -30,6 +36,9 @@ export default function RootLayout() {
           />
         </ImageBackground>
       </SafeAreaProvider>
+      <IncomingCallOverlay />
+      </CallProvider>
+      </SocketProvider>
     </AuthProvider>
   );
 }

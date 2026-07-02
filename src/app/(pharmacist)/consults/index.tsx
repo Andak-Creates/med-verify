@@ -1,67 +1,184 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { usePharmacistConsultations } from '@/hooks/usePharmacistConsultations';
+import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
+import type { ConsultationType, PharmacistConsultation } from '@/types/api';
 
-const PAST_SESSIONS = [
-  {
-    id: '1',
-    patient: 'Amara Okafor',
-    avatar: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&q=80',
-    type: 'Full Health',
-    typeBg: '#E0E7FF',
-    typeColor: '#3730A3',
-    date: 'Oct 24, 2023 • 09:10 AM',
-    earned: '₦6,750',
-    rating: 5,
-    duration: '22 min',
-  },
-  {
-    id: '2',
-    patient: 'David Chen',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&q=80',
-    type: 'Drug Inquiry',
-    typeBg: '#D1FAE5',
-    typeColor: '#065F46',
-    date: 'Oct 23, 2023 • 02:45 PM',
-    earned: '₦2,250',
-    rating: 4,
-    duration: '11 min',
-  },
-  {
-    id: '3',
-    patient: 'Tunde Afolayan',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80',
-    type: 'Drug Inquiry',
-    typeBg: '#D1FAE5',
-    typeColor: '#065F46',
-    date: 'Oct 21, 2023 • 11:00 AM',
-    earned: '₦2,250',
-    rating: 5,
-    duration: '9 min',
-  },
-  {
-    id: '4',
-    patient: 'Sarah Williams',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80',
-    type: 'Full Health',
-    typeBg: '#E0E7FF',
-    typeColor: '#3730A3',
-    date: 'Oct 20, 2023 • 03:30 PM',
-    earned: '₦6,750',
-    rating: 5,
-    duration: '31 min',
-  },
-];
+const TYPE_DISPLAY: Record<ConsultationType, { label: string; bg: string; color: string }> = {
+  chat: { label: 'Drug Inquiry', bg: '#D1FAE5', color: '#065F46' },
+  audio: { label: 'Drug Inquiry', bg: '#D1FAE5', color: '#065F46' },
+  both: { label: 'Full Health', bg: '#E0E7FF', color: '#3730A3' },
+};
+
+const STATUS_DISPLAY: Record<string, { label: string; bg: string; color: string }> = {
+  PENDING: { label: 'PENDING', bg: '#FEF3C7', color: '#92400E' },
+  CONFIRMED: { label: 'CONFIRMED', bg: '#D1FAE5', color: '#065F46' },
+  IN_PROGRESS: { label: 'IN PROGRESS', bg: '#DBEAFE', color: '#1E40AF' },
+  DECLINED: { label: 'DECLINED', bg: '#FEE2E2', color: '#991B1B' },
+  COMPLETED: { label: 'COMPLETED', bg: '#E5E7EB', color: '#374151' },
+  CANCELLED: { label: 'CANCELLED', bg: '#F3F4F6', color: '#6B7280' },
+};
+
+function formatSessionDate(c: PharmacistConsultation): string {
+  const date = new Date(`${c.consultationDate}T12:00:00`);
+  return `${date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })} • ${c.timeSlot}`;
+}
 
 export default function ConsultsScreen() {
   const router = useRouter();
+  const { profile } = usePharmacistProfile();
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
-  const [acceptedSessions, setAcceptedSessions] = useState<Record<string, boolean>>({});
 
-  const acceptSession = (id: string) => {
-    setAcceptedSessions(prev => ({ ...prev, [id]: true }));
+  const upcoming = usePharmacistConsultations('upcoming');
+  const past = usePharmacistConsultations('past');
+  const current = activeTab === 'active' ? upcoming : past;
+
+  const handleAccept = async (c: PharmacistConsultation) => {
+    try {
+      await upcoming.accept(c.id);
+    } catch (err) {
+      Alert.alert('Could not accept', getApiErrorMessage(err, 'This request may no longer be pending.'));
+    }
+  };
+
+  const handleDecline = async (c: PharmacistConsultation) => {
+    try {
+      await upcoming.decline(c.id);
+    } catch (err) {
+      Alert.alert('Could not decline', getApiErrorMessage(err, 'This request may no longer be pending.'));
+    }
+  };
+
+  const renderPatientAvatar = (c: PharmacistConsultation) =>
+    c.patient.profileImage ? (
+      <Image source={{ uri: c.patient.profileImage }} style={styles.patientImage} />
+    ) : (
+      <View style={[styles.patientImage, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+        <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+      </View>
+    );
+
+  const renderActiveCard = (c: PharmacistConsultation) => {
+    const typeDisplay = TYPE_DISPLAY[c.consultationType];
+    const acting = upcoming.actingId === c.id;
+    const canJoin = c.status === 'CONFIRMED' || c.status === 'IN_PROGRESS';
+    return (
+      <View key={c.id} style={styles.sessionCard}>
+        <View style={styles.sessionHeaderRow}>
+          <View style={styles.sessionUserInfo}>
+            {renderPatientAvatar(c)}
+            <View>
+              <Text style={styles.patientName}>{c.patient.fullName ?? 'Patient'}</Text>
+              <View style={styles.timeRow}>
+                <Ionicons name="time-outline" size={14} color="#0B1C5A" />
+                <Text style={styles.timeText}>{formatSessionDate(c)}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={[styles.typeBadge, { backgroundColor: typeDisplay.bg }]}>
+            <Text style={[styles.typeBadgeText, { color: typeDisplay.color }]}>{typeDisplay.label}</Text>
+          </View>
+        </View>
+        <View style={styles.cardDivider} />
+        <View style={styles.sessionFooterRow}>
+          <Text style={styles.earningText}>₦{c.feeAmount.toLocaleString()}</Text>
+          {c.status === 'PENDING' ? (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity style={styles.declineBtn} disabled={acting} onPress={() => handleDecline(c)}>
+                <Text style={styles.declineBtnText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.joinBtn} disabled={acting} onPress={() => handleAccept(c)}>
+                {acting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.joinBtnText}>Accept</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : canJoin ? (
+            <TouchableOpacity
+              style={styles.joinBtn}
+              onPress={() =>
+                router.push({ pathname: '/(pharmacist)/consults/consultation-live', params: { id: c.id } } as any)
+              }
+            >
+              <Text style={styles.joinBtnText}>Join Session</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.typeBadge, { backgroundColor: STATUS_DISPLAY[c.status]?.bg ?? '#F3F4F6' }]}>
+              <Text style={[styles.typeBadgeText, { color: STATUS_DISPLAY[c.status]?.color ?? '#6B7280' }]}>
+                {STATUS_DISPLAY[c.status]?.label ?? c.status}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderPastCard = (c: PharmacistConsultation) => {
+    const typeDisplay = TYPE_DISPLAY[c.consultationType];
+    const statusDisplay = STATUS_DISPLAY[c.status] ?? STATUS_DISPLAY.COMPLETED;
+    return (
+      <TouchableOpacity
+        key={c.id}
+        style={styles.sessionCard}
+        onPress={() =>
+          router.push({
+            pathname: '/(pharmacist)/consults/consultation-live',
+            params: { id: c.id, isPast: 'true' },
+          } as any)
+        }
+      >
+        <View style={styles.sessionHeaderRow}>
+          <View style={styles.sessionUserInfo}>
+            {renderPatientAvatar(c)}
+            <View>
+              <Text style={styles.patientName}>{c.patient.fullName ?? 'Patient'}</Text>
+              <Text style={styles.pastDateText}>{formatSessionDate(c)}</Text>
+            </View>
+          </View>
+          <View style={[styles.typeBadge, { backgroundColor: typeDisplay.bg }]}>
+            <Text style={[styles.typeBadgeText, { color: typeDisplay.color }]}>{typeDisplay.label}</Text>
+          </View>
+        </View>
+
+        <View style={styles.cardDivider} />
+
+        <View style={styles.pastFooterRow}>
+          <View style={[styles.typeBadge, { backgroundColor: statusDisplay.bg }]}>
+            <Text style={[styles.typeBadgeText, { color: statusDisplay.color }]}>{statusDisplay.label}</Text>
+          </View>
+          {c.rating != null && (
+            <View style={styles.pastMeta}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Ionicons
+                  key={i}
+                  name={i < (c.rating ?? 0) ? 'star' : 'star-outline'}
+                  size={14}
+                  color="#F59E0B"
+                />
+              ))}
+            </View>
+          )}
+          <Text style={styles.pastEarned}>₦{c.feeAmount.toLocaleString()}</Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -70,10 +187,13 @@ export default function ConsultsScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.push('/(pharmacist)/profile' as any)}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }}
-              style={styles.avatar}
-            />
+            {profile?.profileImage ? (
+              <Image source={{ uri: profile.profileImage }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+              </View>
+            )}
           </TouchableOpacity>
           <Text style={styles.headerTitle}>MedVerify</Text>
         </View>
@@ -82,8 +202,13 @@ export default function ConsultsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={current.isRefreshing} onRefresh={current.refresh} tintColor="#0B1C5A" />
+        }
+      >
         {/* Toggle Switch */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity
@@ -100,160 +225,49 @@ export default function ConsultsScreen() {
           </TouchableOpacity>
         </View>
 
-        {activeTab === 'active' ? (
-          <>
-            {/* Section Header */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>3 Today</Text>
-              </View>
-            </View>
+        {/* Section Header */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {activeTab === 'active' ? 'Upcoming Sessions' : 'Completed Sessions'}
+          </Text>
+          <View style={[styles.countBadge, activeTab === 'past' && { backgroundColor: '#F3E8FF' }]}>
+            <Text style={[styles.countBadgeText, activeTab === 'past' && { color: '#6B21A8' }]}>
+              {current.items.length} Total
+            </Text>
+          </View>
+        </View>
 
-            {/* Sessions List */}
-            <View style={styles.sessionsList}>
-
-              {/* Session 1 */}
-              <View style={styles.sessionCard}>
-                <View style={styles.sessionHeaderRow}>
-                  <View style={styles.sessionUserInfo}>
-                    <Image
-                      source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80' }}
-                      style={styles.patientImage}
-                    />
-                    <View>
-                      <Text style={styles.patientName}>Adewale Grace</Text>
-                      <View style={styles.timeRow}>
-                        <Ionicons name="time-outline" size={14} color="#0B1C5A" />
-                        <Text style={styles.timeText}>10:30 AM</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={[styles.typeBadge, { backgroundColor: '#D1FAE5' }]}>
-                    <Text style={[styles.typeBadgeText, { color: '#065F46' }]}>Drug Inquiry</Text>
-                  </View>
-                </View>
-                <View style={styles.cardDivider} />
-                <View style={styles.sessionFooterRow}>
-                  <Text style={styles.earningText}>₦1k - ₦5k</Text>
-                  {acceptedSessions['1'] ? (
-                    <TouchableOpacity style={styles.joinBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
-                      <Text style={styles.joinBtnText}>Join Session</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity style={styles.declineBtn}>
-                        <Text style={styles.declineBtnText}>Decline</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.joinBtn} onPress={() => acceptSession('1')}>
-                        <Text style={styles.joinBtnText}>Accept</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* Session 2 */}
-              <View style={styles.sessionCard}>
-                <View style={styles.sessionHeaderRow}>
-                  <View style={styles.sessionUserInfo}>
-                    <Image
-                      source={{ uri: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&q=80' }}
-                      style={styles.patientImage}
-                    />
-                    <View>
-                      <Text style={styles.patientName}>Chidi Azubuike</Text>
-                      <View style={styles.timeRow}>
-                        <Ionicons name="time-outline" size={14} color="#0B1C5A" />
-                        <Text style={styles.timeText}>02:15 PM</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={[styles.typeBadge, { backgroundColor: '#A7F3D0' }]}>
-                    <Text style={[styles.typeBadgeText, { color: '#064E3B' }]}>Full Health</Text>
-                  </View>
-                </View>
-                <View style={styles.cardDivider} />
-                <View style={styles.sessionFooterRow}>
-                  <Text style={styles.earningText}>₦3k - ₦10k</Text>
-                  {acceptedSessions['2'] ? (
-                    <TouchableOpacity style={styles.joinBtn} onPress={() => router.push('/(pharmacist)/consults/consultation-live' as any)}>
-                      <Text style={styles.joinBtnText}>Join Session</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity style={styles.declineBtn}>
-                        <Text style={styles.declineBtnText}>Decline</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.joinBtn} onPress={() => acceptSession('2')}>
-                        <Text style={styles.joinBtnText}>Accept</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-            </View>
-          </>
+        {/* List */}
+        {current.isLoading ? (
+          <View style={{ paddingVertical: 50, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#0B1C5A" />
+          </View>
+        ) : current.error ? (
+          <View style={{ paddingVertical: 30, alignItems: 'center', paddingHorizontal: 20 }}>
+            <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
+            <Text style={{ marginTop: 10, color: '#6B7280', textAlign: 'center' }}>{current.error}</Text>
+            <TouchableOpacity onPress={current.refresh} style={{ marginTop: 12 }}>
+              <Text style={{ color: '#0B1C5A', fontWeight: '700' }}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : current.items.length === 0 ? (
+          <View style={{ paddingVertical: 30, alignItems: 'center', paddingHorizontal: 20 }}>
+            <Ionicons
+              name={activeTab === 'active' ? 'calendar-outline' : 'time-outline'}
+              size={32}
+              color="#9CA3AF"
+            />
+            <Text style={{ marginTop: 10, color: '#6B7280', textAlign: 'center' }}>
+              {activeTab === 'active'
+                ? 'No upcoming sessions. New bookings will appear here in real time.'
+                : 'Completed sessions will appear here.'}
+            </Text>
+          </View>
         ) : (
-          <>
-            {/* Past Section Header */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Completed Sessions</Text>
-              <View style={[styles.countBadge, { backgroundColor: '#F3E8FF' }]}>
-                <Text style={[styles.countBadgeText, { color: '#6B21A8' }]}>4 This Month</Text>
-              </View>
-            </View>
-
-            {/* Past Sessions */}
-            <View style={styles.sessionsList}>
-              {PAST_SESSIONS.map((session) => (
-                <TouchableOpacity 
-                  key={session.id} 
-                  style={styles.sessionCard}
-                  onPress={() => router.push('/(pharmacist)/consults/consultation-live?isPast=true' as any)}
-                >
-                  <View style={styles.sessionHeaderRow}>
-                    <View style={styles.sessionUserInfo}>
-                      <Image source={{ uri: session.avatar }} style={styles.patientImage} />
-                      <View>
-                        <Text style={styles.patientName}>{session.patient}</Text>
-                        <Text style={styles.pastDateText}>{session.date}</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.typeBadge, { backgroundColor: session.typeBg }]}>
-                      <Text style={[styles.typeBadgeText, { color: session.typeColor }]}>{session.type}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.cardDivider} />
-
-                  <View style={styles.pastFooterRow}>
-                    {/* Duration */}
-                    <View style={styles.pastMeta}>
-                      <Ionicons name="time-outline" size={14} color="#64748B" />
-                      <Text style={styles.pastMetaText}>{session.duration}</Text>
-                    </View>
-                    {/* Rating */}
-                    <View style={styles.pastMeta}>
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Ionicons
-                          key={i}
-                          name={i < session.rating ? 'star' : 'star-outline'}
-                          size={14}
-                          color="#F59E0B"
-                        />
-                      ))}
-                    </View>
-                    {/* Earned */}
-                    <Text style={styles.pastEarned}>{session.earned}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
+          <View style={styles.sessionsList}>
+            {current.items.map(activeTab === 'active' ? renderActiveCard : renderPastCard)}
+          </View>
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -365,6 +379,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pastMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  pastMetaText: { fontSize: 13, color: '#64748B' },
   pastEarned: { fontSize: 14, fontWeight: '800', color: '#065F46' },
 });

@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,13 +16,29 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
-import { getApiErrorMessage } from "../../../lib/api";
-import { getScanHistory, type ScanHistoryItem, type ScanHistoryStats } from "../../../lib/drugs";
+import { useConsultations } from "@/hooks/useConsultations";
+import { useScanHistory } from "@/hooks/useDrugVerification";
+import type { Consultation, ConsultationStatus, ScanHistoryItem } from "@/types/api";
 
 const STATUS_DISPLAY: Record<ScanHistoryItem["status"], { label: string; bg: string; color: string; icon: string; iconBg: string }> = {
   verified: { label: "AUTHENTIC", bg: "#EBF5EB", color: "#2E7D32", icon: "link", iconBg: "#EEF1FB" },
   flagged: { label: "FLAGGED", bg: "#FFF7ED", color: "#C2410C", icon: "warning-outline", iconBg: "#FFF7ED" },
   not_found: { label: "NOT FOUND", bg: "#FEF2F2", color: "#B91C1C", icon: "warning-outline", iconBg: "#FEF2F2" },
+};
+
+const CONSULT_STATUS_DISPLAY: Record<ConsultationStatus, { label: string; bg: string; color: string }> = {
+  PENDING: { label: "PENDING", bg: "#FEF3C7", color: "#92400E" },
+  CONFIRMED: { label: "CONFIRMED", bg: "#D1FAE5", color: "#065F46" },
+  IN_PROGRESS: { label: "IN PROGRESS", bg: "#DBEAFE", color: "#1E40AF" },
+  DECLINED: { label: "DECLINED", bg: "#FEE2E2", color: "#991B1B" },
+  COMPLETED: { label: "COMPLETED", bg: "#E5E7EB", color: "#374151" },
+  CANCELLED: { label: "CANCELLED", bg: "#F3F4F6", color: "#6B7280" },
+};
+
+const SESSION_TYPE_LABEL: Record<Consultation["consultationType"], { label: string; icon: string }> = {
+  chat: { label: "Chat Session", icon: "chatbubble-outline" },
+  audio: { label: "Audio Call Session", icon: "call-outline" },
+  both: { label: "Call & Chat Session", icon: "videocam-outline" },
 };
 
 function formatRelativeTime(isoDate: string): string {
@@ -36,32 +55,30 @@ function formatRelativeTime(isoDate: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatConsultationDate(isoDate: string): string {
+  const date = new Date(`${isoDate}T12:00:00`);
+  return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
 export default function HistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meds" | "consultations">("meds");
-  const [medFilter, setMedFilter] = useState<"all" | "authentic" | "flagged">(
-    "all",
-  );
-  const [items, setItems] = useState<ScanHistoryItem[]>([]);
-  const [stats, setStats] = useState<ScanHistoryStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [medFilter, setMedFilter] = useState<"all" | "authentic" | "flagged">("all");
 
-  useFocusEffect(
-    useCallback(() => {
-      // Mock data — backend is disconnected during UI dev
-      setLoading(false);
-      setItems([
-        { id: '1', nafdacNumber: 'A4-0084', drugName: 'Paracetamol BP 500mg', status: 'verified', scannedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), manufacturer: 'GlaxoSmithKline', strength: '500mg', category: 'Analgesic' },
-        { id: '2', nafdacNumber: 'B7-2291', drugName: 'Amoxicillin 250mg', status: 'not_found', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), manufacturer: null, strength: null, category: null },
-        { id: '3', nafdacNumber: 'C2-0451', drugName: 'Lisinopril 10mg', status: 'verified', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), manufacturer: 'Pfizer', strength: '10mg', category: 'Antihypertensive' },
-        { id: '4', nafdacNumber: 'D9-1187', drugName: 'Metformin 500mg', status: 'flagged', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 50).toISOString(), manufacturer: 'Emzor', strength: '500mg', category: 'Antidiabetic' },
-        { id: '5', nafdacNumber: 'A1-0020', drugName: 'Ibuprofen 400mg', status: 'verified', scannedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), manufacturer: 'Sterling', strength: '400mg', category: 'NSAID' },
-      ]);
-      setStats({ totalScans: 5, authenticityRate: 60 });
-    }, [])
-  );
+  const {
+    items,
+    stats,
+    isLoading: loading,
+    isRefreshing,
+    isLoadingMore,
+    error,
+    refresh,
+    loadMore,
+  } = useScanHistory();
+
+  const upcoming = useConsultations("upcoming");
+  const past = useConsultations("past");
 
   const filteredItems = items.filter((item) => {
     if (medFilter === "all") return true;
@@ -69,30 +86,174 @@ export default function HistoryScreen() {
     return item.status === "flagged" || item.status === "not_found";
   });
 
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (activeTab !== "meds") return;
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 240) {
+      loadMore();
+    }
+  };
+
+  const handleRefresh = () => {
+    if (activeTab === "meds") {
+      refresh();
+    } else {
+      upcoming.refresh();
+      past.refresh();
+    }
+  };
+
+  const openScanDetails = (item: ScanHistoryItem) => {
+    const result = JSON.stringify({
+      nafdacNumber: item.nafdacNumber,
+      found: item.status !== "not_found",
+      verificationResult: item.status,
+      productName: item.drugName,
+      manufacturer: item.manufacturer,
+      strength: item.strength,
+      category: item.category,
+      form: null,
+      activeIngredients: null,
+      registryStatus: item.status === "verified" ? "Active" : null,
+      approvalDate: null,
+    });
+    router.push({ pathname: "/(user)/home/result", params: { code: item.nafdacNumber, result } } as any);
+  };
+
+  const renderConsultationCard = (c: Consultation) => {
+    const statusDisplay = CONSULT_STATUS_DISPLAY[c.status];
+    const sessionType = SESSION_TYPE_LABEL[c.consultationType];
+    const canJoin = c.status === "CONFIRMED" || c.status === "IN_PROGRESS";
+    return (
+      <View key={c.id} style={styles.consultCard}>
+        <View style={styles.consultHeader}>
+          {c.pharmacist.profileImage ? (
+            <Image source={{ uri: c.pharmacist.profileImage }} style={styles.docAvatar} />
+          ) : (
+            <View style={[styles.docAvatar, { backgroundColor: "#EEF1FB", alignItems: "center", justifyContent: "center" }]}>
+              <Ionicons name="person-outline" size={28} color="#0B1C5A" />
+            </View>
+          )}
+          <View style={styles.docInfo}>
+            <Text style={styles.docName}>{c.pharmacist.fullName ?? "Pharmacist"}</Text>
+            <Text style={styles.docSpec}>{c.pharmacist.specialty ?? c.pharmacist.pharmacyName ?? "Pharmacist"}</Text>
+            <View style={styles.sessionTypeWrap}>
+              <Ionicons name={sessionType.icon as any} size={14} color="#6B7280" />
+              <Text style={styles.sessionTypeText}>{sessionType.label}</Text>
+            </View>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusDisplay.bg, position: "absolute", top: 0, right: 0 }]}>
+            <Text style={[styles.statusBadgeText, { color: statusDisplay.color }]}>{statusDisplay.label}</Text>
+          </View>
+        </View>
+
+        <View style={styles.calendarBlock}>
+          <View style={styles.calendarStrip}>
+            <Ionicons name="calendar-outline" size={20} color="#0B1C5A" />
+          </View>
+          <View>
+            <Text style={styles.calDate}>{formatConsultationDate(c.consultationDate)}</Text>
+            <Text style={styles.calTime}>Starts at {c.timeSlot} • Ref {c.referenceCode}</Text>
+          </View>
+        </View>
+
+        {canJoin && (
+          <View style={styles.btnRow}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() =>
+                router.push({ pathname: "/(user)/pharmacy/consultation-live", params: { id: c.id } } as any)
+              }
+            >
+              <Ionicons name="play-circle-outline" size={18} color="#fff" />
+              <Text style={styles.primaryBtnText}>Join Session</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderPastCard = (c: Consultation) => {
+    const statusDisplay = CONSULT_STATUS_DISPLAY[c.status];
+    const sessionType = SESSION_TYPE_LABEL[c.consultationType];
+    return (
+      <TouchableOpacity
+        key={c.id}
+        style={styles.pastCard}
+        onPress={() =>
+          router.push({ pathname: "/(user)/pharmacy/consultation-live", params: { id: c.id, isPast: "true" } } as any)
+        }
+      >
+        <View style={styles.pastHeader}>
+          {c.pharmacist.profileImage ? (
+            <Image source={{ uri: c.pharmacist.profileImage }} style={styles.docAvatarSmall} />
+          ) : (
+            <View style={[styles.docAvatarSmall, { backgroundColor: "#DBEAFE", alignItems: "center", justifyContent: "center" }]}>
+              <Ionicons name="medkit-outline" size={24} color="#4B5563" />
+            </View>
+          )}
+          <View style={styles.pastDocInfo}>
+            <Text style={styles.pastDocName}>{c.pharmacist.fullName ?? "Pharmacist"}</Text>
+            <Text style={styles.pastDocSpec}>
+              {(c.pharmacist.specialty ?? "Pharmacist") + " • " + sessionType.label}
+            </Text>
+          </View>
+          <View style={styles.pastDateWrap}>
+            <Text style={styles.pastDateText}>
+              {new Date(`${c.consultationDate}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#8E9CB2" style={{ marginLeft: 8 }} />
+        </View>
+        <View style={styles.pastDivider} />
+        <View style={styles.chipsRow}>
+          <View style={[styles.chip, { backgroundColor: statusDisplay.bg }]}>
+            <Text style={[styles.chipText, { color: statusDisplay.color }]}>{statusDisplay.label}</Text>
+          </View>
+          <View style={styles.chip}>
+            <Ionicons name="time-outline" size={12} color="#6B7280" />
+            <Text style={styles.chipText}>{c.timeSlot}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const consultationsLoading = upcoming.isLoading || past.isLoading;
+  const consultationsError = upcoming.error ?? past.error;
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing || upcoming.isRefreshing || past.isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#0B1C5A"
+          />
+        }
       >
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
           <Text style={styles.logoText}>MedVerify</Text>
           <View style={styles.headerActions}>
-            <Pressable style={styles.iconButton}>
-              <Ionicons
-                name="notifications-outline"
-                size={21}
-                color="#0B1C5A"
-              />
-              <View style={styles.notifDot} />
+            <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
+              <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
             </Pressable>
             <Pressable style={styles.avatarButton} onPress={() => router.push('/(user)/account' as any)}>
-              <Image
-                source={{ uri: user?.profileImage || "https://i.pravatar.cc/150?img=47" }}
-                style={styles.avatarImg}
-              />
+              {user?.profileImage ? (
+                <Image source={{ uri: user.profileImage }} style={styles.avatarImg} />
+              ) : (
+                <View style={[styles.avatarImg, { backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }]}>
+                  <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -110,35 +271,19 @@ export default function HistoryScreen() {
         <View style={styles.tabContainer}>
           <View style={styles.tabRow}>
             <TouchableOpacity
-              style={[
-                styles.mainTab,
-                activeTab === "meds" && styles.mainTabActive,
-              ]}
+              style={[styles.mainTab, activeTab === "meds" && styles.mainTabActive]}
               onPress={() => setActiveTab("meds")}
             >
-              <Text
-                style={[
-                  styles.mainTabText,
-                  activeTab === "meds" && styles.mainTabTextActive,
-                ]}
-              >
+              <Text style={[styles.mainTabText, activeTab === "meds" && styles.mainTabTextActive]}>
                 Meds
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.mainTab,
-                activeTab === "consultations" && styles.mainTabActive,
-              ]}
+              style={[styles.mainTab, activeTab === "consultations" && styles.mainTabActive]}
               onPress={() => setActiveTab("consultations")}
             >
-              <Text
-                style={[
-                  styles.mainTabText,
-                  activeTab === "consultations" && styles.mainTabTextActive,
-                ]}
-              >
+              <Text style={[styles.mainTabText, activeTab === "consultations" && styles.mainTabTextActive]}>
                 Consultations
               </Text>
             </TouchableOpacity>
@@ -151,56 +296,23 @@ export default function HistoryScreen() {
           <View style={styles.medsContent}>
             {/* Filter Pills */}
             <View style={styles.filterRow}>
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  medFilter === "all" && styles.filterPillActive,
-                ]}
-                onPress={() => setMedFilter("all")}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    medFilter === "all" && styles.filterPillTextActive,
-                  ]}
+              {(
+                [
+                  { key: "all", label: "All Scans" },
+                  { key: "authentic", label: "Authentic" },
+                  { key: "flagged", label: "Flagged" },
+                ] as const
+              ).map((pill) => (
+                <TouchableOpacity
+                  key={pill.key}
+                  style={[styles.filterPill, medFilter === pill.key && styles.filterPillActive]}
+                  onPress={() => setMedFilter(pill.key)}
                 >
-                  All Scans
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  medFilter === "authentic" && styles.filterPillActive,
-                ]}
-                onPress={() => setMedFilter("authentic")}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    medFilter === "authentic" && styles.filterPillTextActive,
-                  ]}
-                >
-                  Authentic
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  medFilter === "flagged" && styles.filterPillActive,
-                ]}
-                onPress={() => setMedFilter("flagged")}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    medFilter === "flagged" && styles.filterPillTextActive,
-                  ]}
-                >
-                  Flagged
-                </Text>
-              </TouchableOpacity>
+                  <Text style={[styles.filterPillText, medFilter === pill.key && styles.filterPillTextActive]}>
+                    {pill.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* Meds List */}
@@ -212,6 +324,9 @@ export default function HistoryScreen() {
               <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 20 }}>
                 <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
                 <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>{error}</Text>
+                <TouchableOpacity onPress={refresh} style={{ marginTop: 12 }}>
+                  <Text style={{ color: "#0B1C5A", fontWeight: "700" }}>Try again</Text>
+                </TouchableOpacity>
               </View>
             ) : filteredItems.length === 0 ? (
               <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 20 }}>
@@ -252,24 +367,7 @@ export default function HistoryScreen() {
                           <Ionicons name="time-outline" size={14} color="#6B7280" />
                           <Text style={styles.timeText}>{formatRelativeTime(item.scannedAt)}</Text>
                         </View>
-                        <TouchableOpacity
-                          onPress={() => {
-                            const result = JSON.stringify({
-                              nafdacNumber: item.nafdacNumber,
-                              found: item.status !== 'not_found',
-                              verificationResult: item.status,
-                              productName: item.drugName,
-                              manufacturer: item.manufacturer,
-                              strength: item.strength,
-                              category: item.category,
-                              form: null,
-                              activeIngredients: null,
-                              registryStatus: item.status === 'verified' ? 'Active' : null,
-                              approvalDate: null,
-                            });
-                            router.push({ pathname: '/(user)/home/result', params: { code: item.nafdacNumber, result } } as any);
-                          }}
-                        >
+                        <TouchableOpacity onPress={() => openScanDetails(item)}>
                           <Text style={[styles.actionText, { color: "#0B1C5A" }]}>
                             View Details ›
                           </Text>
@@ -278,11 +376,16 @@ export default function HistoryScreen() {
                     </View>
                   );
                 })}
+                {isLoadingMore && (
+                  <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                    <ActivityIndicator size="small" color="#0B1C5A" />
+                  </View>
+                )}
               </View>
             )}
 
             {/* Stats */}
-            {stats && (
+            {stats && !loading && (
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                   <Text style={styles.statLabel}>TOTAL SCANS</Text>
@@ -300,163 +403,58 @@ export default function HistoryScreen() {
         {/* ── CONSULTATIONS TAB CONTENT ───────────────────────────── */}
         {activeTab === "consultations" && (
           <View style={styles.consultationsContent}>
-            {/* Upcoming Section */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>1 Session</Text>
+            {consultationsLoading ? (
+              <View style={{ paddingVertical: 60, alignItems: "center" }}>
+                <ActivityIndicator size="large" color="#0B1C5A" />
               </View>
-            </View>
-
-            <View style={styles.consultCard}>
-              <View style={styles.consultHeader}>
-                <Image
-                  source={{ uri: "https://i.pravatar.cc/150?img=32" }}
-                  style={styles.docAvatar}
-                />
-                <View style={styles.docInfo}>
-                  <Text style={styles.docName}>Dr. Sarah Chen</Text>
-                  <Text style={styles.docSpec}>General Practitioner</Text>
-                  <View style={styles.sessionTypeWrap}>
-                    <Ionicons
-                      name="videocam-outline"
-                      size={14}
-                      color="#6B7280"
-                    />
-                    <Text style={styles.sessionTypeText}>
-                      Call & Chat Session
+            ) : consultationsError ? (
+              <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 20 }}>
+                <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
+                <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>{consultationsError}</Text>
+                <TouchableOpacity onPress={handleRefresh} style={{ marginTop: 12 }}>
+                  <Text style={{ color: "#0B1C5A", fontWeight: "700" }}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {/* Upcoming Section */}
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Upcoming</Text>
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>
+                      {upcoming.items.length} {upcoming.items.length === 1 ? "Session" : "Sessions"}
                     </Text>
                   </View>
                 </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: "#D1FAE5",
-                      position: "absolute",
-                      top: 0,
-                      right: 0,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.statusBadgeText, { color: "#065F46" }]}>
-                    CONFIRMED
-                  </Text>
-                </View>
-              </View>
 
-              <View style={styles.calendarBlock}>
-                <View style={styles.calendarStrip}>
-                  <Ionicons name="calendar-outline" size={20} color="#0B1C5A" />
-                </View>
-                <View>
-                  <Text style={styles.calDate}>Mon, 11 Dec</Text>
-                  <Text style={styles.calTime}>
-                    Starts at 02:00 PM (15 mins)
-                  </Text>
-                </View>
-              </View>
+                {upcoming.items.length === 0 ? (
+                  <View style={{ paddingVertical: 24, alignItems: "center", paddingHorizontal: 20 }}>
+                    <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
+                    <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>
+                      No upcoming consultations. Book a session with a pharmacist to get started.
+                    </Text>
+                  </View>
+                ) : (
+                  upcoming.items.map(renderConsultationCard)
+                )}
 
-              <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/(user)/pharmacy/consultation-live' as any)}>
-                  <Ionicons name="play-circle-outline" size={18} color="#fff" />
-                  <Text style={styles.primaryBtnText}>Join Session</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.outlineBtn}>
-                  <Ionicons name="calendar-outline" size={18} color="#0B1C5A" />
-                  <Text style={styles.outlineBtnText}>Reschedule</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                {/* Past Sessions Section */}
+                <View style={[styles.sectionHeader, { marginTop: 10 }]}>
+                  <Text style={styles.sectionTitle}>Past Sessions</Text>
+                </View>
 
-            {/* Past Sessions Section */}
-            <View style={[styles.sectionHeader, { marginTop: 10 }]}>
-              <Text style={styles.sectionTitle}>Past Sessions</Text>
-            </View>
-
-            {/* Past Item 1 */}
-            <TouchableOpacity 
-              style={styles.pastCard}
-              onPress={() => router.push('/(user)/pharmacy/consultation-live?isPast=true' as any)}
-            >
-              <View style={styles.pastHeader}>
-                <Image
-                  source={{ uri: "https://i.pravatar.cc/150?img=11" }}
-                  style={styles.docAvatarSmall}
-                />
-                <View style={styles.pastDocInfo}>
-                  <Text style={styles.pastDocName}>Pharm. James Wilson</Text>
-                  <Text style={styles.pastDocSpec}>
-                    Clinical Pharmacist • Call & Chat
-                  </Text>
-                </View>
-                <View style={styles.pastDateWrap}>
-                  <Text style={styles.pastDateText}>Dec 04,</Text>
-                  <Text style={styles.pastDateText}>2023</Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color="#8E9CB2"
-                  style={{ marginLeft: 8 }}
-                />
-              </View>
-              <View style={styles.pastDivider} />
-              <View style={styles.chipsRow}>
-                <View style={styles.chip}>
-                  <Ionicons
-                    name="document-text-outline"
-                    size={12}
-                    color="#6B7280"
-                  />
-                  <Text style={styles.chipText}>Prescription Issued</Text>
-                </View>
-                <View style={styles.chip}>
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={12}
-                    color="#6B7280"
-                  />
-                  <Text style={styles.chipText}>Completed</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* Past Item 2 */}
-            <TouchableOpacity 
-              style={styles.pastCard}
-              onPress={() => router.push('/(user)/pharmacy/consultation-live?isPast=true' as any)}
-            >
-              <View style={styles.pastHeader}>
-                <View
-                  style={[
-                    styles.docAvatarSmall,
-                    {
-                      backgroundColor: "#DBEAFE",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    },
-                  ]}
-                >
-                  <Ionicons name="medkit-outline" size={24} color="#4B5563" />
-                </View>
-                <View style={styles.pastDocInfo}>
-                  <Text style={styles.pastDocName}>Pharm. Sarah Jenkins</Text>
-                  <Text style={styles.pastDocSpec}>
-                    Pediatric Pharmacist • Audio Call
-                  </Text>
-                </View>
-                <View style={styles.pastDateWrap}>
-                  <Text style={styles.pastDateText}>Nov 28, 2023</Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color="#8E9CB2"
-                  style={{ marginLeft: 8 }}
-                />
-              </View>
-            </TouchableOpacity>
+                {past.items.length === 0 ? (
+                  <View style={{ paddingVertical: 24, alignItems: "center", paddingHorizontal: 20 }}>
+                    <Ionicons name="time-outline" size={32} color="#9CA3AF" />
+                    <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>
+                      Past consultations will appear here.
+                    </Text>
+                  </View>
+                ) : (
+                  past.items.map(renderPastCard)
+                )}
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -714,19 +712,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  outlineBtn: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#0B1C5A",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 48,
-    borderRadius: 12,
-    gap: 8,
-  },
-  outlineBtnText: { color: "#0B1C5A", fontSize: 15, fontWeight: "700" },
 
   pastCard: {
     backgroundColor: "#fff",

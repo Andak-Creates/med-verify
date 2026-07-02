@@ -1,6 +1,6 @@
 ﻿import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   ScrollView,
@@ -10,31 +10,28 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import type { BookingConfirmation } from "@/types/api";
 
-const TYPE_LABELS: Record<
-  string,
-  { label: string; icon: string; price: string }
-> = {
-  video: { label: "Video Call", icon: "videocam-outline", price: "₦2,500" },
-  chat: {
-    label: "Text Chat",
-    icon: "chatbubble-ellipses-outline",
-    price: "₦1,500",
-  },
-  phone: { label: "Phone Call", icon: "call-outline", price: "₦2,000" },
-  both: { label: "Call & Chat", icon: "headset-outline", price: "₦5,000" },
+const TYPE_LABELS: Record<string, { label: string; icon: string }> = {
+  chat: { label: "Text Chat", icon: "chatbubble-ellipses-outline" },
+  audio: { label: "Audio Call", icon: "call-outline" },
+  both: { label: "Call & Chat", icon: "headset-outline" },
 };
 
 export default function BookingConfirmScreen() {
   const router = useRouter();
-  const { day, time, type, urgency, price } = useLocalSearchParams<{
-    day: string;
-    time: string;
-    type: string;
-    urgency: string;
-    price: string;
-  }>();
-  const info = TYPE_LABELS[type ?? "both"] ?? TYPE_LABELS.both;
+  const { booking } = useLocalSearchParams<{ booking: string }>();
+
+  const confirmation = useMemo<BookingConfirmation | null>(() => {
+    if (!booking) return null;
+    try {
+      return JSON.parse(booking) as BookingConfirmation;
+    } catch {
+      return null;
+    }
+  }, [booking]);
+
+  const info = TYPE_LABELS[confirmation?.consultationType ?? "both"] ?? TYPE_LABELS.both;
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -53,25 +50,36 @@ export default function BookingConfirmScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [scaleAnim, fadeAnim]);
 
-  const ref = `BK-${Math.floor(100000 + Math.random() * 900000)}`;
+  const formattedDate = confirmation
+    ? new Date(`${confirmation.consultationDate}T12:00:00`).toLocaleDateString(undefined, {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      })
+    : "—";
 
   const rows = [
+    {
+      label: "Pharmacist",
+      value: confirmation?.pharmacistName ?? "—",
+      icon: "person-outline",
+    },
     { label: "Session Type", value: info.label, icon: info.icon },
-    { label: "Date", value: day ?? "—", icon: "calendar-outline" },
-    { label: "Time", value: time ?? "—", icon: "time-outline" },
+    { label: "Date", value: formattedDate, icon: "calendar-outline" },
+    { label: "Time", value: confirmation?.timeSlot ?? "—", icon: "time-outline" },
     {
       label: "Priority",
-      value: urgency === "high" ? "⚡ High" : "Normal",
+      value: confirmation?.urgency === "high" ? "⚡ High" : "Normal",
       icon: "flag-outline",
     },
     {
       label: "Amount",
-      value: price ?? info.price,
+      value: confirmation ? `₦${confirmation.feeAmount.toLocaleString()}` : "—",
       icon: "card-outline",
     },
-    { label: "Reference", value: ref, icon: "receipt-outline" },
+    { label: "Reference", value: confirmation?.referenceCode ?? "—", icon: "receipt-outline" },
   ];
 
   return (
@@ -91,10 +99,10 @@ export default function BookingConfirmScreen() {
 
         <Animated.View style={{ opacity: fadeAnim }}>
           {/* Title block */}
-          <Text style={styles.title}>Booking Confirmed! 🎉</Text>
+          <Text style={styles.title}>Booking Placed! 🎉</Text>
           <Text style={styles.subtitle}>
-            Your consultation has been scheduled.{"\n"}You'll receive a reminder
-            before the session.
+            Your consultation request has been sent.{"\n"}You'll be notified as
+            soon as the pharmacist accepts.
           </Text>
 
           {/* Booking details card */}
@@ -136,13 +144,11 @@ export default function BookingConfirmScreen() {
 
           {/* CTA buttons */}
           <TouchableOpacity
-            onPress={() =>
-              router.replace("/(user)/pharmacy/consultation-live" as any)
-            }
+            onPress={() => router.replace("/(user)/history" as any)}
             style={styles.primaryBtn}
           >
-            <Ionicons name={info.icon as any} size={18} color="#fff" />
-            <Text style={styles.primaryBtnText}>Join Session Now</Text>
+            <Ionicons name="calendar-outline" size={18} color="#fff" />
+            <Text style={styles.primaryBtnText}>View My Bookings</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

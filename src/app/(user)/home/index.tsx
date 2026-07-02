@@ -145,13 +145,13 @@ export default function HomeScreen() {
         
         <View style={styles.actionGrid}>
           <Pressable
-            onPress={() => handleScanAction('/(user)/home/scan-image')}
+            onPress={() => handleScanAction('/(user)/home/scan-qr')}
             style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.85 }]}
           >
             <View style={styles.actionIconWrap}>
               <Ionicons name="camera-outline" size={22} color="#0B1C5A" />
             </View>
-            <Text style={styles.actionLabel}>Take a Photo</Text>
+            <Text style={styles.actionLabel}>Scan with Camera</Text>
           </Pressable>
 
           <Pressable

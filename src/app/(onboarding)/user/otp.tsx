@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
-import { getApiErrorMessage } from "../../../lib/api";
+import { getApiErrorMessage } from "@/api/client";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 55;
