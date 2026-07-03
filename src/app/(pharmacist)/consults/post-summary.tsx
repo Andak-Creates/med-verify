@@ -1,94 +1,99 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as pharmacistService from '@/services/pharmacist.service';
+import type { PharmacistConsultation } from '@/types/api';
 
 export default function PostSummaryScreen() {
   const router = useRouter();
-  const [notes, setNotes] = useState('');
-  const [prescription, setPrescription] = useState('');
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [booking, setBooking] = useState<PharmacistConsultation | null>(null);
 
-  const handleSubmit = () => {
-    // In a real app, this would send the summary to the backend
-    router.replace('/(pharmacist)/dashboard' as any);
-  };
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { items } = await pharmacistService.listConsultations({ filter: 'past', limit: 50 });
+        if (!cancelled) setBooking(items.find((c) => c.id === id) ?? null);
+      } catch {
+        // The summary still renders with generic labels.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Post-Consultation Summary</Text>
+        <Text style={styles.headerTitle}>Session Completed</Text>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Patient Details */}
-          <View style={styles.patientCard}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Patient Details */}
+        <View style={styles.patientCard}>
+          {booking?.patient.profileImage ? (
+            <Image source={{ uri: booking.patient.profileImage }} style={styles.patientAvatar} />
+          ) : (
             <View style={styles.patientAvatar}>
               <Ionicons name="person-outline" size={24} color="#0B1C5A" />
             </View>
-            <View style={styles.patientInfo}>
-              <Text style={styles.patientName}>Sarah J.</Text>
-              <Text style={styles.patientMeta}>Medication Clarification</Text>
+          )}
+          <View style={styles.patientInfo}>
+            <Text style={styles.patientName}>{booking?.patient.fullName ?? 'Patient'}</Text>
+            <Text style={styles.patientMeta}>
+              {booking ? `Ref ${booking.referenceCode} • ${booking.timeSlot}` : 'Consultation session'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Session summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Summary</Text>
+          <Text style={styles.sectionSub}>
+            The consultation has ended and the transcript has been saved. The patient can rate the
+            session from their app.
+          </Text>
+          {booking && (
+            <View style={styles.summaryRows}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Patient concern</Text>
+                <Text style={styles.summaryValue}>{booking.reason}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Session fee</Text>
+                <Text style={styles.summaryValue}>₦{booking.feeAmount.toLocaleString()}</Text>
+              </View>
+              {booking.rating != null && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Patient rating</Text>
+                  <Text style={styles.summaryValue}>{'★'.repeat(booking.rating)}</Text>
+                </View>
+              )}
             </View>
-          </View>
+          )}
+        </View>
 
-          {/* Notes Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Consultation Notes</Text>
-            <Text style={styles.sectionSub}>Summarize the patient's concerns and your advice.</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Patient experienced mild stomach ache after taking antibiotics. Advised to take with food..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-              value={notes}
-              onChangeText={setNotes}
-            />
-          </View>
+        <View style={{ height: 20 }} />
 
-          {/* Prescription Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Prescribe Medication (Optional)</Text>
-            <Text style={styles.sectionSub}>Add any OTC or refill medications recommended during the call.</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Paracetamol 500mg, twice daily"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={prescription}
-              onChangeText={setPrescription}
-            />
-          </View>
-
-          <View style={{ height: 20 }} />
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitBtn, (!notes.trim()) && styles.submitBtnDisabled]}
-            disabled={!notes.trim()}
-            onPress={handleSubmit}
-          >
-            <Text style={styles.submitBtnText}>Submit Summary</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <TouchableOpacity
+          style={styles.submitBtn}
+          onPress={() => router.replace('/(pharmacist)/dashboard' as any)}
+        >
+          <Text style={styles.submitBtnText}>Back to Dashboard</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -164,15 +169,31 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 12,
   },
-  textInput: {
+  summaryRows: {
     backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     borderRadius: 16,
     padding: 16,
-    fontSize: 15,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  summaryRow: {
+    gap: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryValue: {
+    fontSize: 14,
     color: '#111827',
-    minHeight: 120,
+    lineHeight: 20,
   },
   submitBtn: {
     backgroundColor: '#0B1C5A',
@@ -180,9 +201,6 @@ const styles = StyleSheet.create({
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  submitBtnDisabled: {
-    backgroundColor: '#9CA3AF',
   },
   submitBtnText: {
     color: '#fff',

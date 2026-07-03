@@ -1,26 +1,51 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
 
 type FeeType = {
-  id: string;
+  id: 'feeDrugInquiry' | 'feeFullConsultation';
   label: string;
   description: string;
   amount: string;
   icon: string;
 };
 
-const INITIAL_FEES: FeeType[] = [
-  { id: '1', label: 'Drug-Specific Inquiry', description: 'Quick questions about specific medications', amount: '3000', icon: 'link-outline' },
-  { id: '2', label: 'Full Health Consultation', description: 'Comprehensive patient consultation session', amount: '8000', icon: 'medkit-outline' },
+const FEE_DEFINITIONS: Omit<FeeType, 'amount'>[] = [
+  { id: 'feeDrugInquiry', label: 'Drug-Specific Inquiry', description: 'Quick questions about specific medications', icon: 'link-outline' },
+  { id: 'feeFullConsultation', label: 'Full Health Consultation', description: 'Comprehensive patient consultation session', icon: 'medkit-outline' },
 ];
 
 export default function FeeSettingsScreen() {
   const router = useRouter();
-  const [fees, setFees] = useState(INITIAL_FEES);
+  const { profile, isLoading, updateFees } = usePharmacistProfile();
+  const [fees, setFees] = useState<FeeType[]>(
+    FEE_DEFINITIONS.map((definition) => ({ ...definition, amount: '' })),
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    setFees(
+      FEE_DEFINITIONS.map((definition) => ({
+        ...definition,
+        amount: String(profile[definition.id]),
+      })),
+    );
+  }, [profile]);
 
   const updateAmount = (id: string, val: string) => {
     setFees((prev) => prev.map((f) => f.id === id ? { ...f, amount: val.replace(/[^0-9]/g, '') } : f));
@@ -32,6 +57,27 @@ export default function FeeSettingsScreen() {
   const isValid = (amount: string) => {
     const n = parseInt(amount, 10);
     return !isNaN(n) && n >= platformMin && n <= platformMax;
+  };
+
+  const allValid = fees.every((f) => isValid(f.amount));
+
+  const handleSaveAll = async () => {
+    if (!allValid) {
+      Alert.alert('Invalid fees', 'All fees must be between ₦1,000 and ₦10,000.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateFees({
+        feeDrugInquiry: parseInt(fees[0].amount, 10),
+        feeFullConsultation: parseInt(fees[1].amount, 10),
+      });
+      router.back();
+    } catch (err) {
+      Alert.alert('Could not save fees', getApiErrorMessage(err, 'Please try again.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -66,7 +112,12 @@ export default function FeeSettingsScreen() {
         </View>
 
         {/* Fee Cards */}
-        {fees.map((fee) => {
+        {isLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#0B1C5A" />
+          </View>
+        ) : (
+        fees.map((fee) => {
           const isEditing = editingId === fee.id;
           const valid = isValid(fee.amount);
           const net = valid ? (parseInt(fee.amount) * 0.9).toLocaleString('en-NG') : '—';
@@ -102,7 +153,9 @@ export default function FeeSettingsScreen() {
                       />
                     </View>
                   ) : (
-                    <Text style={styles.amountDisplay}>₦{parseInt(fee.amount).toLocaleString('en-NG')}</Text>
+                    <Text style={styles.amountDisplay}>
+                      {isValid(fee.amount) ? `₦${parseInt(fee.amount, 10).toLocaleString('en-NG')}` : '—'}
+                    </Text>
                   )}
                 </View>
                 <View style={styles.netColumn}>
@@ -131,11 +184,20 @@ export default function FeeSettingsScreen() {
               </TouchableOpacity>
             </View>
           );
-        })}
+        })
+        )}
 
         {/* Save all button */}
-        <TouchableOpacity style={styles.saveAllBtn} onPress={() => router.back()}>
-          <Text style={styles.saveAllText}>Save All Changes</Text>
+        <TouchableOpacity
+          style={[styles.saveAllBtn, (saving || isLoading || !allValid) && { opacity: 0.6 }]}
+          onPress={handleSaveAll}
+          disabled={saving || isLoading || !allValid}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveAllText}>Save All Changes</Text>
+          )}
         </TouchableOpacity>
 
       </ScrollView>

@@ -1,22 +1,95 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../../context/AuthContext';
+import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
+import * as pharmacistsService from '@/services/pharmacists.service';
+import type { PublicPharmacist, WorkingHoursEntry } from '@/types/api';
+
+function maskCredential(value: string | null): string {
+  if (!value) return 'Not provided';
+  if (value.length <= 4) return value;
+  return `${'*'.repeat(Math.max(value.length - 4, 2))}${value.slice(-4)}`;
+}
+
+function formatTime(h: number, m: number): string {
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+function formatWorkingHours(hours: WorkingHoursEntry[] | null): string[] {
+  const enabled = (hours ?? []).filter((entry) => entry.enabled);
+  if (enabled.length === 0) return ['Not configured'];
+  return enabled.map(
+    (entry) =>
+      `${entry.day.slice(0, 3)}: ${formatTime(entry.startH, entry.startM)} - ${formatTime(entry.endH, entry.endM)}`,
+  );
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { profile, isLoading, error, reload } = usePharmacistProfile();
+  // Public stats (rating, consult counts) come from the marketplace endpoint.
+  const [publicStats, setPublicStats] = useState<PublicPharmacist | null>(null);
+
+  useEffect(() => {
+    if (!profile?.profileId) return;
+    pharmacistsService
+      .getPharmacist(profile.profileId)
+      .then(setPublicStats)
+      .catch(() => setPublicStats(null));
+  }, [profile?.profileId]);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#0B1C5A" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 }}>
+          <Ionicons name="alert-circle-outline" size={36} color="#9CA3AF" />
+          <Text style={{ marginTop: 12, color: '#6B7280', textAlign: 'center' }}>
+            {error ?? 'Could not load your profile.'}
+          </Text>
+          <TouchableOpacity onPress={reload} style={{ marginTop: 12 }}>
+            <Text style={{ color: '#0B1C5A', fontWeight: '700' }}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const workingHourLines = formatWorkingHours(profile.workingHours);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Image 
-            source={{ uri: user?.profileImage || 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }} 
-            style={styles.headerAvatar} 
-          />
+          {profile.profileImage ? (
+            <Image source={{ uri: profile.profileImage }} style={styles.headerAvatar} />
+          ) : (
+            <View style={[styles.headerAvatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="person-outline" size={16} color="#0B1C5A" />
+            </View>
+          )}
           <Text style={styles.headerTitle}>MedVerify</Text>
         </View>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
@@ -29,76 +102,85 @@ export default function ProfileScreen() {
         {/* Profile Hero */}
         <View style={styles.heroSection}>
           <View style={styles.avatarContainer}>
-            <Image 
-              source={{ uri: user?.profileImage || 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80' }} 
-              style={styles.largeAvatar} 
-            />
+            {profile.profileImage ? (
+              <Image source={{ uri: profile.profileImage }} style={styles.largeAvatar} />
+            ) : (
+              <View style={[styles.largeAvatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person-outline" size={44} color="#0B1C5A" />
+              </View>
+            )}
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={24} color="#0B1C5A" style={{ backgroundColor: '#fff', borderRadius: 12 }} />
             </View>
           </View>
-          
-          <Text style={styles.doctorName}>Dr. Aris Thorne</Text>
-          <Text style={styles.doctorTitle}>PharmD, RPh</Text>
-          
+
+          <Text style={styles.doctorName}>{profile.fullName ?? profile.username}</Text>
+          <Text style={styles.doctorTitle}>{profile.specialty ?? 'Pharmacist'}</Text>
+
           <View style={styles.verifiedTag}>
             <Ionicons name="checkmark-circle" size={14} color="#0B1C5A" />
-            <Text style={styles.verifiedTagText}>Verified Professional</Text>
+            <Text style={styles.verifiedTagText}>
+              {profile.status === 'APPROVED' ? 'Verified Professional' : profile.status.replace('_', ' ')}
+            </Text>
           </View>
         </View>
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>1.2k</Text>
+            <Text style={styles.statValue}>{publicStats?.totalConsultations ?? '—'}</Text>
             <Text style={styles.statLabel}>Consults</Text>
           </View>
           <View style={styles.statBox}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <Text style={styles.statValue}>4.9</Text>
+              <Text style={styles.statValue}>
+                {publicStats && publicStats.avgRating > 0 ? publicStats.avgRating.toFixed(1) : '—'}
+              </Text>
               <Ionicons name="star" size={14} color="#F59E0B" />
             </View>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>8yrs</Text>
-            <Text style={styles.statLabel}>Experience</Text>
+            <Text style={styles.statValue}>{publicStats?.reviewCount ?? '—'}</Text>
+            <Text style={styles.statLabel}>Reviews</Text>
           </View>
         </View>
 
         {/* Info Cards */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Specialty</Text>
-          <Text style={styles.cardText}>Clinical Pharmacy</Text>
+          <Text style={styles.cardText}>{profile.specialty ?? 'Not set — add one in Edit Profile'}</Text>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>About</Text>
           <Text style={styles.cardText}>
-            Dedicated Clinical Pharmacist with 8 years of experience in medication management and patient counseling. Specializing in chronic disease therapy and pharmaceutical verification for high-risk prescriptions.
+            {profile.bio ?? 'No bio yet. Tell patients about your experience in Edit Profile.'}
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Education</Text>
-          <View style={styles.rowItem}>
-            <Ionicons name="school-outline" size={22} color="#1E293B" style={styles.rowIcon} />
-            <View>
-              <Text style={styles.rowTitle}>Doctor of Pharmacy (PharmD)</Text>
-              <Text style={styles.rowSub}>University of Lagos, Faculty of Pharmacy</Text>
+        {(profile.pharmacyName || profile.pharmacyAddress) && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Pharmacy</Text>
+            <View style={styles.rowItem}>
+              <Ionicons name="storefront-outline" size={22} color="#1E293B" style={styles.rowIcon} />
+              <View>
+                <Text style={styles.rowTitle}>{profile.pharmacyName ?? 'Pharmacy'}</Text>
+                {profile.pharmacyAddress && <Text style={styles.rowSub}>{profile.pharmacyAddress}</Text>}
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Professional Details</Text>
           <View style={styles.divider} />
-          
+
           <View style={[styles.rowItem, { marginBottom: 16 }]}>
             <Ionicons name="id-card-outline" size={22} color="#475569" style={styles.rowIcon} />
             <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.rowTitle}>NAFDAC License</Text>
-              <Text style={styles.rowValue}>NF-****-9281</Text>
+              <Text style={styles.rowTitle}>PCN Licence</Text>
+              <Text style={styles.rowValue}>{maskCredential(profile.pcn)}</Text>
             </View>
           </View>
 
@@ -107,8 +189,9 @@ export default function ProfileScreen() {
             <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={styles.rowTitle}>Business Hours</Text>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.rowValue}>Mon - Fri: 09:00 - 18:00</Text>
-                <Text style={styles.rowValue}>Sat: 10:00 - 14:00</Text>
+                {workingHourLines.map((line) => (
+                  <Text key={line} style={styles.rowValue}>{line}</Text>
+                ))}
               </View>
             </View>
           </View>

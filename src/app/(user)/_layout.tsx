@@ -63,14 +63,6 @@ export default function Layout() {
           name="pharmacy/consultation-live"
           options={{ href: null, tabBarStyle: { display: "none" } }}
         />
-        <Tabs.Screen
-          name="pharmacy/pharmacist-profile"
-          options={{ href: null }}
-        />
-        <Tabs.Screen
-          name="pharmacy/pharmacy-profile"
-          options={{ href: null }}
-        />
         <Tabs.Screen name="account/notifications" options={{ href: null }} />
         <Tabs.Screen name="account/subscription" options={{ href: null }} />
         <Tabs.Screen name="account/paywall" options={{ href: null }} />
@@ -79,8 +71,6 @@ export default function Layout() {
         <Tabs.Screen name="home/report" options={{ href: null }} />
         <Tabs.Screen name="home/report-confirm" options={{ href: null }} />
         <Tabs.Screen name="home/result" options={{ href: null }} />
-        <Tabs.Screen name="home/scan-image" options={{ href: null, tabBarStyle: { display: "none" } }} />
-        <Tabs.Screen name="home/scan-loading" options={{ href: null, tabBarStyle: { display: "none" } }} />
         <Tabs.Screen name="home/scan-manual" options={{ href: null, tabBarStyle: { display: "none" } }} />
         <Tabs.Screen name="home/scan-qr" options={{ href: null, tabBarStyle: { display: "none" } }} />
         <Tabs.Screen name="ai-chat/chat" options={{ href: null, tabBarStyle: { display: "none" } }} />

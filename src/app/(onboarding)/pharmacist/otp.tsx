@@ -13,12 +13,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApiErrorMessage } from "@/api/client";
+import { useAuth } from "../../../context/AuthContext";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 55;
 
 export default function OtpScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
+  const { pharmacistVerifyOtp, pharmacistResendOtp } = useAuth();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
   const [canResend, setCanResend] = useState(false);
@@ -52,27 +55,32 @@ export default function OtpScreen() {
   };
 
   const handleResend = async () => {
-    if (!canResend) return;
+    if (!canResend || !email) return;
     setResending(true);
     try {
-      setTimeout(() => {
-        setOtp(Array(OTP_LENGTH).fill(""));
-        setTimer(RESEND_SECONDS);
-        setCanResend(false);
-        inputRefs.current[0]?.focus();
-        setResending(false);
-      }, 1000);
+      await pharmacistResendOtp(email);
+      setOtp(Array(OTP_LENGTH).fill(""));
+      setTimer(RESEND_SECONDS);
+      setCanResend(false);
+      inputRefs.current[0]?.focus();
     } catch (err) {
+      Alert.alert("Couldn't resend code", getApiErrorMessage(err, "Please try again in a moment."));
+    } finally {
       setResending(false);
     }
   };
 
   const handleVerify = async () => {
+    if (!email) return;
     setVerifying(true);
-    setTimeout(() => {
+    try {
+      await pharmacistVerifyOtp(email, otp.join(""));
+      router.push('/(onboarding)/pharmacist/profile-setup' as any);
+    } catch (err) {
+      Alert.alert("Verification failed", getApiErrorMessage(err, "That code didn't work. Please try again."));
+    } finally {
       setVerifying(false);
-      router.push('/(onboarding)/pharmacist/license-upload' as any);
-    }, 1000);
+    }
   };
 
   const isComplete = otp.every((d) => d !== "");

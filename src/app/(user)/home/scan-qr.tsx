@@ -3,6 +3,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   Image,
@@ -12,12 +13,32 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApiErrorMessage } from "@/api/client";
+import { useAuth } from "../../../context/AuthContext";
+import { getScanHistory, verifyDrug } from "@/services/drugs.service";
+import type { ScanHistoryItem } from "@/types/api";
 
 export default function ScanQrScreen() {
   const router = useRouter();
+  const { user, incrementScanCount } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [lastScan, setLastScan] = useState<ScanHistoryItem | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getScanHistory({ limit: 1 })
+      .then(({ items }) => {
+        if (!cancelled) setLastScan(items[0] ?? null);
+      })
+      .catch(() => {
+        // The pill simply stays hidden when history can't be loaded.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const laserAnim = useRef(new Animated.Value(0)).current;
 
@@ -40,21 +61,23 @@ export default function ScanQrScreen() {
     ).start();
   }, []);
 
-  const handleBarCodeScanned = ({
-    type,
-    data,
-  }: {
-    type: string;
-    data: string;
-  }) => {
+  const handleBarCodeScanned = async ({ data }: { type: string; data: string }) => {
     if (scanned) return;
     setScanned(true);
-    setTimeout(() => {
+    try {
+      const result = await verifyDrug(data.trim());
+      incrementScanCount();
       router.push({
         pathname: "/(user)/home/result",
-        params: { code: data },
+        params: { code: data.trim(), result: JSON.stringify(result) },
       } as any);
-    }, 1000);
+    } catch (err) {
+      Alert.alert(
+        "Verification failed",
+        getApiErrorMessage(err, "Could not verify this code. Please try again."),
+        [{ text: "OK", onPress: () => setScanned(false) }],
+      );
+    }
   };
 
   const isCameraAvailable = permission && permission.granted;
@@ -76,12 +99,13 @@ export default function ScanQrScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>MedVerify</Text>
         <View style={styles.avatar}>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=100",
-            }}
-            style={{ width: "100%", height: "100%" }}
-          />
+          {user?.profileImage ? (
+            <Image source={{ uri: user.profileImage }} style={{ width: "100%", height: "100%" }} />
+          ) : (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#EEF1FB" }}>
+              <Ionicons name="person-outline" size={18} color="#0B1C5A" />
+            </View>
+          )}
         </View>
       </View>
 
@@ -123,15 +147,7 @@ export default function ScanQrScreen() {
                     <Text style={styles.grantBtnText}>Grant Camera Access</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => {
-                      setScanned(true);
-                      setTimeout(() => {
-                        router.push({
-                          pathname: "/(user)/home/result",
-                          params: { code: "MOCK_NAFDAC_12345" },
-                        } as any);
-                      }, 1000);
-                    }}
+                    onPress={() => router.replace("/(user)/home/scan-manual" as any)}
                     style={{ marginTop: 10 }}
                   >
                     <Text
@@ -142,7 +158,7 @@ export default function ScanQrScreen() {
                         textDecorationLine: "underline",
                       }}
                     >
-                      Simulate verification scan
+                      Enter the NAFDAC number manually instead
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -225,16 +241,6 @@ export default function ScanQrScreen() {
         {/* Action Buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            onPress={() => router.push("/(user)/home/scan-image" as any)}
-            style={styles.actionCard}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: "#EEF1FB" }]}>
-              <Ionicons name="camera-outline" size={22} color="#0B1C5A" />
-            </View>
-            <Text style={styles.actionLabel}>Take Photo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             onPress={() => router.push("/(user)/home/scan-manual" as any)}
             style={styles.actionCard}
           >
@@ -246,15 +252,21 @@ export default function ScanQrScreen() {
         </View>
 
         {/* Last Verified Pill */}
-        <View style={styles.verifiedPill}>
-          <Ionicons name="checkbox" size={20} color="#10B981" />
-          <Text style={styles.verifiedText}>
-            Last verified:{" "}
-            <Text style={{ fontWeight: "700", color: "#374151" }}>
-              Paracetamol BP 500mg
+        {lastScan && (
+          <View style={styles.verifiedPill}>
+            <Ionicons
+              name={lastScan.status === "verified" ? "checkbox" : "alert-circle"}
+              size={20}
+              color={lastScan.status === "verified" ? "#10B981" : "#F59E0B"}
+            />
+            <Text style={styles.verifiedText}>
+              Last scanned:{" "}
+              <Text style={{ fontWeight: "700", color: "#374151" }}>
+                {lastScan.drugName ?? lastScan.nafdacNumber}
+              </Text>
             </Text>
-          </Text>
-        </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );

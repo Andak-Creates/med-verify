@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,11 +16,67 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { FormError } from '../../../components/FormError';
+import { useAuth } from '../../../context/AuthContext';
+import * as pharmacistService from '@/services/pharmacist.service';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+  const { user, uploadAvatar } = useAuth();
   const [fullName, setFullName] = useState('');
   const [specialty, setSpecialty] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(user?.profileImage ?? null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to add a profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const fileName = asset.fileName ?? `avatar-${Date.now()}.jpg`;
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
+    setUploadingAvatar(true);
+    try {
+      const updated = await uploadAvatar({
+        uri: asset.uri,
+        name: fileName,
+        type: asset.mimeType ?? `image/${ext}`,
+      });
+      setAvatarUri(updated.profileImage);
+    } catch (err) {
+      Alert.alert('Upload failed', getApiErrorMessage(err, 'Could not upload your photo.'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleCompleteSetup = async () => {
+    setFormError(null);
+    setSaving(true);
+    try {
+      await pharmacistService.updateProfile({
+        fullName: fullName.trim(),
+        specialty: specialty.trim(),
+      });
+      router.push('/(onboarding)/pharmacist/license-upload' as any);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not save your profile. Please try again.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -36,14 +96,22 @@ export default function ProfileSetupScreen() {
           <Text style={styles.title}>Complete Profile</Text>
           <Text style={styles.subtitle}>Help users know who they are consulting with.</Text>
 
-          <View style={styles.avatarUpload}>
-            <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={40} color="#8E9CB2" />
-            </View>
+          <TouchableOpacity style={styles.avatarUpload} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarCircle} />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Ionicons name="person" size={40} color="#8E9CB2" />
+              </View>
+            )}
             <View style={styles.avatarAddBtn}>
-              <Ionicons name="camera" size={16} color="#fff" />
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={16} color="#fff" />
+              )}
             </View>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Full Name (with title)</Text>
@@ -73,12 +141,18 @@ export default function ProfileSetupScreen() {
             </View>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.btn, (!fullName.trim() || !specialty.trim()) && styles.btnDisabled]} 
-            disabled={!fullName.trim() || !specialty.trim()}
-            onPress={() => router.push('/(onboarding)/pharmacist/verification-pending' as any)}
+          <FormError message={formError} />
+
+          <TouchableOpacity
+            style={[styles.btn, (!fullName.trim() || !specialty.trim() || saving) && styles.btnDisabled]}
+            disabled={!fullName.trim() || !specialty.trim() || saving}
+            onPress={handleCompleteSetup}
           >
-            <Text style={styles.btnText}>Complete Setup</Text>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Complete Setup</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

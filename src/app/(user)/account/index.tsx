@@ -19,10 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
-import { getApiErrorMessage } from "../../../lib/api";
-
-const FALLBACK_AVATAR =
-  "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80";
+import { getApiErrorMessage } from "@/api/client";
 
 // Must match the backend's VALID_BLOOD_GROUPS in users.controller.js exactly.
 const BLOOD_GROUPS = [
@@ -170,10 +167,13 @@ export default function AccountScreen() {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Image
-              source={{ uri: user?.profileImage || FALLBACK_AVATAR }}
-              style={styles.avatarImg}
-            />
+            {user?.profileImage ? (
+              <Image source={{ uri: user.profileImage }} style={styles.avatarImg} />
+            ) : (
+              <View style={[styles.avatarImg, { backgroundColor: "#EEF1FB", alignItems: "center", justifyContent: "center" }]}>
+                <Ionicons name="person-outline" size={36} color="#312E81" />
+              </View>
+            )}
             <Pressable
               style={styles.editBadge}
               onPress={handlePickAvatar}

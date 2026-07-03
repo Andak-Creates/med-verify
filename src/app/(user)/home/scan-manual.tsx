@@ -13,11 +13,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { verifyDrug } from '../../../lib/drugs';
-import { getApiErrorMessage } from '../../../lib/api';
+import { getApiErrorMessage } from '@/api/client';
+import { useAuth } from '../../../context/AuthContext';
+import { verifyDrug } from '@/services/drugs.service';
 
 export default function ScanManualScreen() {
   const router = useRouter();
+  const { incrementScanCount } = useAuth();
   const [nafdacCode, setNafdacCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +29,7 @@ export default function ScanManualScreen() {
     setLoading(true);
     try {
       const result = await verifyDrug(code);
+      incrementScanCount();
       router.push({
         pathname: '/(user)/home/result',
         params: {

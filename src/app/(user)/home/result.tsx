@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { DrugVerificationResult } from '../../../lib/drugs';
+import type { DrugVerificationResult } from '@/types/api';
 
 const STATUS_CONFIG: Record<DrugVerificationResult['verificationResult'], {
   color: string; bg: string; border: string; icon: keyof typeof Ionicons.glyphMap; label: string; message: string;
