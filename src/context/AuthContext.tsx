@@ -1,3 +1,4 @@
+import * as SecureStore from 'expo-secure-store';
 import React, {
   createContext,
   useCallback,
@@ -63,8 +64,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MedVerifyUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPro, setIsPro] = useState(true);
+  const [isPro, setIsPro] = useState(false);
   const [scanCount, setScanCount] = useState(0);
+
+  // Load persisted scan count on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await SecureStore.getItemAsync('medverify_scan_count');
+        if (stored) setScanCount(parseInt(stored, 10));
+      } catch {
+        // Ignore — start from 0 if storage fails
+      }
+    })();
+  }, []);
 
   const applySession = useCallback(async (session: AuthSession) => {
     await persistToken(session.token);
@@ -189,7 +202,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return updated;
   }, []);
 
-  const incrementScanCount = useCallback(() => setScanCount((c) => c + 1), []);
+  const incrementScanCount = useCallback(() => {
+    setScanCount((c) => {
+      const next = c + 1;
+      SecureStore.setItemAsync('medverify_scan_count', String(next)).catch(() => {});
+      return next;
+    });
+  }, []);
   const subscribeToPro = useCallback(() => setIsPro(true), []);
   const unsubscribeFromPro = useCallback(() => setIsPro(false), []);
 
