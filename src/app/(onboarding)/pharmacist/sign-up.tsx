@@ -22,8 +22,8 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showOtpRedirect, setShowOtpRedirect] = useState(false);
 
   const handleSignup = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -32,6 +32,7 @@ export default function SignupScreen() {
       return;
     }
     setFormError(null);
+    setShowOtpRedirect(false);
     setLoading(true);
     try {
       await pharmacistSignup(trimmedEmail, password, phone.trim());
@@ -40,9 +41,11 @@ export default function SignupScreen() {
         params: { email: trimmedEmail },
       });
     } catch (err) {
-      setFormError(
-        getApiErrorMessage(err, 'Could not create your account. That email may already be in use.'),
-      );
+      const errMsg = getApiErrorMessage(err, 'Could not create your account. That email may already be in use.');
+      setFormError(errMsg);
+      if (errMsg.toLowerCase().includes('already exists') || errMsg.toLowerCase().includes('already in use')) {
+        setShowOtpRedirect(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -102,6 +105,20 @@ export default function SignupScreen() {
             </View>
 
             <FormError message={formError} />
+
+            {showOtpRedirect && (
+              <Pressable
+                onPress={() => router.push({
+                  pathname: '/(onboarding)/pharmacist/otp' as any,
+                  params: { email: email.trim().toLowerCase() },
+                })}
+                style={{ marginBottom: 20, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#0B1C5A', fontWeight: '700', fontSize: 14 }}>
+                  Unverified account? Tap here to verify your email.
+                </Text>
+              </Pressable>
+            )}
 
             {/* Sign Up Button */}
             <Pressable

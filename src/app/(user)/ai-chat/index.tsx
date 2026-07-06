@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -15,31 +16,96 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const AI_SETUP_KEY = 'medverify_ai_setup';
+
 export default function AiChatIntroScreen() {
   const router = useRouter();
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const isEditMode = edit === '1';
+
   const [assistantName, setAssistantName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<"female" | "male">("female");
-  // Skin tone hex colors
   const [selectedSkinTone, setSelectedSkinTone] = useState("EDB98A");
+  // If opened via settings icon (edit=1), user is always a returning user
+  const [isFirstTime, setIsFirstTime] = useState(!isEditMode);
+  // While we check storage, show nothing to avoid a flash
+  const [checking, setChecking] = useState(true);
 
-  const colorOptions = ["FFDBB4", "EDB98A", "D08B5B", "AE5D29", "392211"];
+  const colorOptions = ["EDB98A", "D08B5B", "AE5D29"];
 
-  // DiceBear Avataaars - customized for a friendly, professional look
-  const avatarSeed = selectedAvatar === "female" ? "Jasmine" : "Oliver";
-  const avatarUrl = `https://api.dicebear.com/7.x/avataaars/png?seed=${avatarSeed}&skinColor=${selectedSkinTone}&backgroundColor=e2e8f0&mouth=smile&eyes=happy&clothing=blazerAndShirt`;
+  const BITMOJIS: Record<"female" | "male", Record<string, any>> = {
+    female: {
+      EDB98A: require("../../../../assets/images/bitmoji-female-EDB98A.png"),
+      D08B5B: require("../../../../assets/images/bitmoji-female-D08B5B.png"),
+      AE5D29: require("../../../../assets/images/bitmoji-female-AE5D29.png"),
+    },
+    male: {
+      EDB98A: require("../../../../assets/images/bitmoji-male-EDB98A.png"),
+      D08B5B: require("../../../../assets/images/bitmoji-male-D08B5B.png"),
+      AE5D29: require("../../../../assets/images/bitmoji-male-AE5D29.png"),
+    },
+  };
 
-  const handleStart = () => {
-    // Navigate to the actual chat interface (assuming we'll create it later at ai-chat/chat)
-    // Pass config as params
+  const avatarSource = BITMOJIS[selectedAvatar][selectedSkinTone];
+
+  // On mount: check if user already has a saved AI setup
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await SecureStore.getItemAsync(AI_SETUP_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as {
+            name: string;
+            avatar: 'female' | 'male';
+            skinTone: string;
+          };
+
+          if (isEditMode) {
+            // User came from the settings icon to edit — pre-fill form, stay on this screen
+            setAssistantName(saved.name);
+            setSelectedAvatar(saved.avatar);
+            setSelectedSkinTone(saved.skinTone);
+            // isFirstTime is already false (initialized above), nothing more to do
+          } else {
+            // Returning user tapped AI Chat tab — skip setup, go straight to chat
+            router.replace({
+              pathname: '/(user)/ai-chat/chat',
+              params: {
+                name: saved.name,
+                avatar: saved.avatar,
+                skinTone: saved.skinTone,
+              },
+            } as any);
+            return;
+          }
+        }
+      } catch {
+        // Storage error — fall through to setup
+      } finally {
+        setChecking(false);
+      }
+    })();
+  }, [isEditMode]);
+
+  const handleStart = async () => {
+    const setup = {
+      name: assistantName,
+      avatar: selectedAvatar,
+      skinTone: selectedSkinTone,
+    };
+    try {
+      await SecureStore.setItemAsync(AI_SETUP_KEY, JSON.stringify(setup));
+    } catch {
+      // Non-fatal: proceed even if storage fails
+    }
     router.push({
       pathname: "/(user)/ai-chat/chat",
-      params: {
-        name: assistantName,
-        avatar: selectedAvatar,
-        skinTone: selectedSkinTone,
-      },
+      params: setup,
     } as any);
   };
+
+  // Don't flash setup screen while checking storage
+  if (checking) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -78,15 +144,15 @@ export default function AiChatIntroScreen() {
 
           {/* Graphic Area */}
           <View style={styles.graphicContainer}>
-            {/* Background deco circles */}
+            {/* Skin-tone-tinted deco circles */}
             <View
               style={[
                 styles.decoCircle,
                 {
-                  width: 250,
-                  height: 250,
+                  width: 260,
+                  height: 260,
                   backgroundColor: `#${selectedSkinTone}`,
-                  opacity: 0.15,
+                  opacity: 0.18,
                   top: 0,
                 },
               ]}
@@ -98,7 +164,7 @@ export default function AiChatIntroScreen() {
                   width: 60,
                   height: 60,
                   backgroundColor: `#${selectedSkinTone}`,
-                  opacity: 0.25,
+                  opacity: 0.28,
                   top: 20,
                   right: 40,
                 },
@@ -111,26 +177,28 @@ export default function AiChatIntroScreen() {
                   width: 40,
                   height: 40,
                   backgroundColor: `#${selectedSkinTone}`,
-                  opacity: 0.2,
+                  opacity: 0.22,
                   bottom: 20,
                   left: 40,
                 },
               ]}
             />
 
-            {/* Main Image Box */}
-            <View style={styles.imageBox}>
-              <Image
-                source={{ uri: avatarUrl }}
-                style={styles.robotImg}
-              />
+            {/* Main Bitmoji Box — skin-tinted background */}
+            <View
+              style={[
+                styles.imageBox,
+                { backgroundColor: `#${selectedSkinTone}22` },
+              ]}
+            >
+              <Image source={avatarSource} style={styles.robotImg} />
             </View>
           </View>
 
-          {/* Avatar & Color Picker */}
+          {/* Avatar + Skin Tone Pickers */}
           <View style={styles.pickerSection}>
             <View style={styles.avatarPicker}>
-              <Text style={styles.inputLabel}>Select Avatar Style</Text>
+              <Text style={styles.inputLabel}>Select Assistant</Text>
               <View style={styles.row}>
                 <TouchableOpacity
                   onPress={() => setSelectedAvatar("female")}
@@ -139,6 +207,10 @@ export default function AiChatIntroScreen() {
                     selectedAvatar === "female" && styles.avatarBtnActive,
                   ]}
                 >
+                  <Image
+                    source={BITMOJIS.female[selectedSkinTone]}
+                    style={styles.avatarThumb}
+                  />
                   <Text
                     style={[
                       styles.avatarBtnText,
@@ -155,6 +227,10 @@ export default function AiChatIntroScreen() {
                     selectedAvatar === "male" && styles.avatarBtnActive,
                   ]}
                 >
+                  <Image
+                    source={BITMOJIS.male[selectedSkinTone]}
+                    style={styles.avatarThumb}
+                  />
                   <Text
                     style={[
                       styles.avatarBtnText,
@@ -168,8 +244,11 @@ export default function AiChatIntroScreen() {
             </View>
 
             <View style={styles.colorPicker}>
-              <Text style={styles.inputLabel}>Select Skin Tone</Text>
-              <View style={styles.colorRow}>
+              <Text style={styles.inputLabel}>Skin Tone</Text>
+              <View
+                style={styles.colorRow}
+                className="flex-row items-center justify-between w-40"
+              >
                 {colorOptions.map((color) => (
                   <TouchableOpacity
                     key={color}
@@ -181,7 +260,11 @@ export default function AiChatIntroScreen() {
                     ]}
                   >
                     {selectedSkinTone === color && (
-                      <Ionicons name="checkmark" size={14} color={color === 'FFDBB4' ? '#000' : '#fff'} />
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={color === "FFDBB4" ? "#333" : "#fff"}
+                      />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -222,11 +305,10 @@ export default function AiChatIntroScreen() {
           </View>
 
           {/* Action Button */}
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleStart}
-          >
-            <Text style={styles.primaryBtnText}>Start Conversing</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleStart}>
+            <Text style={styles.primaryBtnText}>
+              {isFirstTime ? 'Start Conversing' : 'Continue Conversing'}
+            </Text>
             <Ionicons name="chevron-forward" size={18} color="#fff" />
           </TouchableOpacity>
 
@@ -358,15 +440,15 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   avatarPicker: { width: "100%" },
-  colorPicker: { width: "100%" },
   row: { flexDirection: "row", gap: 10 },
   avatarBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
@@ -375,9 +457,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     backgroundColor: "#EEF1FB",
   },
+  avatarThumb: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#E2E8F0",
+  },
   avatarBtnText: { fontSize: 14, fontWeight: "600", color: "#4B5563" },
   avatarBtnTextActive: { color: "#0B1C5A", fontWeight: "700" },
-  colorRow: { flexDirection: "row", gap: 12, alignItems: "center", height: 44, justifyContent: "flex-start" },
+  colorPicker: { width: "100%" },
+  colorRow: { flexDirection: "row", gap: 12, alignItems: "center", height: 44 },
   colorDot: {
     width: 36,
     height: 36,

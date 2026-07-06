@@ -25,6 +25,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showOtpRedirect, setShowOtpRedirect] = useState(false);
 
   const { ready: googleReady, promptAsync: promptGoogleSignIn } = useGoogleSignIn(
     async (idToken) => {
@@ -66,12 +67,17 @@ export default function SignUpScreen() {
     }
 
     setFormError(null);
+    setShowOtpRedirect(false);
     setLoading(true);
     try {
       await signup(email, password, "USER");
       router.replace({ pathname: "/(onboarding)/user/otp" as any, params: { email } });
     } catch (err) {
-      setFormError(getApiErrorMessage(err, "Could not create your account. That email may already be in use — try logging in instead."));
+      const errMsg = getApiErrorMessage(err, "Could not create your account. That email may already be in use — try logging in instead.");
+      setFormError(errMsg);
+      if (errMsg.toLowerCase().includes("already exists") || errMsg.toLowerCase().includes("already in use")) {
+        setShowOtpRedirect(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -194,6 +200,17 @@ export default function SignUpScreen() {
           </View>
 
           <FormError message={formError} />
+
+          {showOtpRedirect && (
+            <Pressable
+              onPress={() => router.replace({ pathname: "/(onboarding)/user/otp" as any, params: { email: identifier.trim().toLowerCase() } })}
+              style={{ marginBottom: 20, alignItems: "center" }}
+            >
+              <Text style={{ color: "#0b5cbe", fontWeight: "600", fontSize: 14 }}>
+                Unverified account? Tap here to verify your email.
+              </Text>
+            </Pressable>
+          )}
 
           {/* Sign Up Button */}
           <Pressable

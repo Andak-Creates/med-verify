@@ -97,7 +97,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const NAVY = "#0B1C5A";
   const GRAY = "#A0AABB";
-  const bottomPad = Platform.OS === "ios" ? insets.bottom + 4 : 12;
+  const bottomPad = Platform.OS === "ios" ? insets.bottom + 6 : 12;
 
   const currentRoute = state.routes[state.index];
   const currentOptions = descriptors[currentRoute.key].options;
@@ -166,7 +166,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                   <Text
                     style={[
                       styles.label,
-                      { color: focused ? NAVY : GRAY, marginTop: 42 },
+                      { color: focused ? NAVY : GRAY, marginTop: 62 },
                     ]}
                   >
                     {label}
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-    height: 65, // Explicit height guarantees it never collapses
+    paddingTop: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.05,

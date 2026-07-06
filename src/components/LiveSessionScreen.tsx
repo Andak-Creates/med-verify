@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Alert,
+  Animated,
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -56,8 +58,56 @@ export function LiveSessionScreen({
   const [input, setInput] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [ending, setEnding] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [showAttachSheet, setShowAttachSheet] = useState(false);
   const flatRef = useRef<FlatList>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  const openAttachSheet = () => {
+    setShowAttachSheet(true);
+    Animated.spring(slideAnim, {
+      toValue: 0, useNativeDriver: true, damping: 20, stiffness: 150,
+    }).start();
+  };
+
+  const closeAttachSheet = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300, duration: 200, useNativeDriver: true,
+    }).start(() => setShowAttachSheet(false));
+  };
+
+  const pickFromGallery = async () => {
+    closeAttachSheet();
+    setTimeout(async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow access to your photo library to attach images.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) setPendingImage(result.assets[0].uri);
+    }, 350);
+  };
+
+  const takePhoto = async () => {
+    closeAttachSheet();
+    setTimeout(async () => {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow camera access to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) setPendingImage(result.assets[0].uri);
+    }, 350);
+  };
 
   const session = useChatSession(isPast ? undefined : consultationId);
   const { registerConsultation, clearConsultation } = useCall();
@@ -145,14 +195,20 @@ export function LiveSessionScreen({
 
   const send = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text && !pendingImage) return;
     setInput('');
+    const imgUri = pendingImage;
+    setPendingImage(null);
     try {
-      await session.sendMessage(text);
+      if (text) await session.sendMessage(text);
+      // TODO: upload imgUri to backend when image-message endpoint is ready.
+      // When there is no text, send a placeholder so the other side knows an image was attached.
+      if (imgUri && !text) await session.sendMessage('📷 [Image attached — backend upload pending]');
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 80);
     } catch {
       // Error is surfaced via session.error; restore the draft so nothing is lost.
       setInput(text);
+      if (imgUri) setPendingImage(imgUri);
     }
   };
 
@@ -305,32 +361,97 @@ export function LiveSessionScreen({
 
         {/* Input */}
         {!isPast && !session.sessionEnded && (
-          <View style={styles.inputBar}>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={input}
-                onChangeText={setInput}
-                placeholder="Type your message..."
-                placeholderTextColor="#9CA3AF"
-                multiline
-                style={styles.textInput}
-                editable={session.isConnected && !session.isJoining}
-              />
-              <Pressable
-                onPress={send}
-                disabled={!input.trim() || session.isSending || !session.isConnected}
-                style={[styles.sendBtn, (!input.trim() || !session.isConnected) && { backgroundColor: '#E5E7EB' }]}
-              >
-                {session.isSending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="send" size={16} color={input.trim() && session.isConnected ? '#fff' : '#9CA3AF'} />
-                )}
-              </Pressable>
+          <>
+            {/* Attachment preview */}
+            {pendingImage && (
+              <View style={styles.attachPreviewBar}>
+                <View style={styles.attachPreviewItem}>
+                  <Image source={{ uri: pendingImage }} style={styles.attachThumb} resizeMode="cover" />
+                  <TouchableOpacity onPress={() => setPendingImage(null)} style={styles.attachRemoveBtn}>
+                    <Ionicons name="close-circle" size={22} color="#0B1C5A" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            <View style={styles.inputBar}>
+              <View style={styles.inputWrap}>
+                {/* Attach + button */}
+                <TouchableOpacity onPress={openAttachSheet} style={styles.attachBtn}>
+                  <Ionicons name="add" size={22} color="#0B1C5A" />
+                </TouchableOpacity>
+                <TextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Type your message..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  style={styles.textInput}
+                  editable={session.isConnected && !session.isJoining}
+                />
+                <Pressable
+                  onPress={send}
+                  disabled={!input.trim() && !pendingImage || session.isSending || !session.isConnected}
+                  style={[styles.sendBtn, (!input.trim() && !pendingImage || !session.isConnected) && { backgroundColor: '#E5E7EB' }]}
+                >
+                  {session.isSending ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="send" size={16} color={(input.trim() || pendingImage) && session.isConnected ? '#fff' : '#9CA3AF'} />
+                  )}
+                </Pressable>
+              </View>
             </View>
-          </View>
+          </>
         )}
       </KeyboardAvoidingView>
+
+      {/* Attachment Action Sheet */}
+      {showAttachSheet && (
+        <Modal transparent animationType="none" onRequestClose={closeAttachSheet}>
+          <Pressable style={styles.sheetOverlay} onPress={closeAttachSheet}>
+            <Animated.View style={[styles.sheetContainer, { transform: [{ translateY: slideAnim }] }]}>
+              <View style={styles.sheetHandle} />
+              <Text style={styles.sheetTitle}>Add Attachment</Text>
+              <TouchableOpacity style={styles.sheetOption} onPress={takePhoto}>
+                <View style={styles.sheetIconBg}>
+                  <Ionicons name="camera" size={22} color="#0B1C5A" />
+                </View>
+                <View>
+                  <Text style={styles.sheetOptionText}>Take Photo</Text>
+                  <Text style={styles.sheetOptionSub}>Use your camera</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetOption} onPress={pickFromGallery}>
+                <View style={styles.sheetIconBg}>
+                  <Ionicons name="images" size={22} color="#0B1C5A" />
+                </View>
+                <View>
+                  <Text style={styles.sheetOptionText}>Choose from Gallery</Text>
+                  <Text style={styles.sheetOptionSub}>Select a photo or image</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sheetOption}
+                onPress={() => {
+                  closeAttachSheet();
+                  setTimeout(() => Alert.alert('Coming soon', 'File attachments will be available once backend support is added.'), 350);
+                }}
+              >
+                <View style={styles.sheetIconBg}>
+                  <Ionicons name="document-attach" size={22} color="#0B1C5A" />
+                </View>
+                <View>
+                  <Text style={styles.sheetOptionText}>File</Text>
+                  <Text style={styles.sheetOptionSub}>PDF, DOC and more</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetCancel} onPress={closeAttachSheet}>
+                <Text style={styles.sheetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </Pressable>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -380,10 +501,57 @@ const styles = StyleSheet.create({
   },
   inputWrap: {
     flexDirection: 'row', alignItems: 'flex-end',
-    backgroundColor: '#F3F4F6', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 6, gap: 8,
+    backgroundColor: '#F3F4F6', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 6, gap: 8,
   },
   textInput: {
     flex: 1, fontSize: 15, color: '#111827', maxHeight: 100, paddingTop: 6, paddingBottom: 6,
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+
+  /* Attach button */
+  attachBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+
+  /* Attachment preview */
+  attachPreviewBar: {
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  attachPreviewItem: { position: 'relative', alignSelf: 'flex-start' },
+  attachThumb: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#E2E8F0' },
+  attachRemoveBtn: {
+    position: 'absolute', top: -8, right: -8,
+    backgroundColor: '#fff', borderRadius: 11,
+  },
+
+  /* Action sheet */
+  sheetOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 34 : 20, paddingHorizontal: 20,
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 16,
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 16 },
+  sheetOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  sheetIconBg: {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center',
+  },
+  sheetOptionText: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  sheetOptionSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  sheetCancel: {
+    marginTop: 16, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: '#F3F4F6', borderRadius: 14,
+  },
+  sheetCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
 });

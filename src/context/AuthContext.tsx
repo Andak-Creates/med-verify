@@ -67,14 +67,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = useState(false);
   const [scanCount, setScanCount] = useState(0);
 
-  // Load persisted scan count on mount
+  // Load persisted scan count and Pro status on mount
   useEffect(() => {
     (async () => {
       try {
         const stored = await SecureStore.getItemAsync('medverify_scan_count');
         if (stored) setScanCount(parseInt(stored, 10));
+        const storedPro = await SecureStore.getItemAsync('medverify_is_pro');
+        if (storedPro === 'true') setIsPro(true);
       } catch {
-        // Ignore — start from 0 if storage fails
+        // Ignore — start from defaults if storage fails
       }
     })();
   }, []);
@@ -209,8 +211,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
-  const subscribeToPro = useCallback(() => setIsPro(true), []);
-  const unsubscribeFromPro = useCallback(() => setIsPro(false), []);
+  const subscribeToPro = useCallback(() => {
+    setIsPro(true);
+    SecureStore.setItemAsync('medverify_is_pro', 'true').catch(() => {});
+  }, []);
+
+  const unsubscribeFromPro = useCallback(() => {
+    setIsPro(false);
+    SecureStore.setItemAsync('medverify_is_pro', 'false').catch(() => {});
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({

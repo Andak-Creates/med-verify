@@ -91,12 +91,26 @@ export function AudioCallScreen({
     return () => pulse.stop();
   }, [pulseAnim]);
 
+  const navigateToChat = () => {
+    if (activeConsultation) {
+      const pathname =
+        activeConsultation.role === 'PHARMACIST'
+          ? '/(pharmacist)/consults/consultation-live'
+          : '/(user)/pharmacy/consultation-live';
+      router.replace({ pathname, params: { id: activeConsultation.id } } as any);
+    } else {
+      router.back();
+    }
+  };
+
   // Leave the screen shortly after the call ends.
   useEffect(() => {
     if (callStatus !== 'ended') return;
-    const t = setTimeout(() => router.back(), 1200);
+    const t = setTimeout(() => {
+      navigateToChat();
+    }, 1200);
     return () => clearTimeout(t);
-  }, [callStatus, router]);
+  }, [callStatus, router, activeConsultation]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -106,7 +120,7 @@ export function AudioCallScreen({
 
   const handleEnd = () => {
     hangUp();
-    router.back();
+    navigateToChat();
   };
 
   const statusText: Record<string, string> = {

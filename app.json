@@ -9,11 +9,18 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.medverify.app",
-      "bitcode": false
+      "bundleIdentifier": "com.vwindi.medverify",
+      "bitcode": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Allow MedVerify to access your camera for video consultations.",
+        "NSMicrophoneUsageDescription": "Allow MedVerify to access your microphone for audio consultations.",
+        "NSLocationWhenInUseUsageDescription": "Allow MedVerify to access your location to find nearby pharmacies.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow MedVerify to access your location to find nearby pharmacies."
+      }
     },
     "android": {
-      "package": "com.medverify.app",
+      "package": "com.vwindi.medverify",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -54,9 +61,24 @@
       [
         "@config-plugins/react-native-webrtc",
         {
+          "cameraPermission": "Allow MedVerify to access your camera for video consultations.",
           "microphonePermission": "Allow MedVerify to access your microphone for audio consultations."
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow MedVerify to access your camera for video consultations and scanner functions."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow MedVerify to access your location to find nearby pharmacies."
+        }
+      ],
+      "expo-font",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -65,9 +87,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "bdd28059-2981-4d00-aeb0-dd9ba6d7de5f"
+        "projectId": "acc68557-7acf-424f-b2eb-8dd2f4f02641"
       }
     },
-    "owner": "dollarsmoney"
+    "owner": "vwindi"
   }
 }

@@ -10,7 +10,9 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? DEV_FALLBACK_URL;
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30_000,
+  // 60 s — long enough to survive the Render free-tier cold-start (typically
+  // 40-50 s on first request after a period of inactivity).
+  timeout: 60_000,
 });
 
 api.interceptors.request.use(async (config) => {
