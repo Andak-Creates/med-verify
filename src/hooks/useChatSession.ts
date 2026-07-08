@@ -147,13 +147,11 @@ export function useChatSession(consultationId: string | undefined) {
   }, [socket, consultationId]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      const message = text.trim();
-      if (!consultationId || !message) return;
+    async (text: string, imageUrl?: string | null) => {
+      if (!consultationId || (!text.trim() && !imageUrl)) return;
       setState((s) => ({ ...s, isSending: true, error: null }));
       try {
-        // The server echoes the persisted message back via `new_message`.
-        await sendMessageViaSocket(consultationId, message);
+        await sendMessageViaSocket(consultationId, text.trim(), imageUrl);
       } catch (err) {
         setState((s) => ({
           ...s,

@@ -12,6 +12,10 @@ export async function updateProfile(updates: UserProfileUpdates): Promise<MedVer
   return data.data.user;
 }
 
+export async function updatePushToken(token: string): Promise<void> {
+  await api.patch('/users/me/push-token', { token });
+}
+
 export async function uploadAvatar(file: UploadableFile): Promise<MedVerifyUser> {
   const formData = new FormData();
   if (Platform.OS === 'web') {
