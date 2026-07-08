@@ -180,12 +180,6 @@ export function LiveSessionScreen({
 
   const send = async () => {
     const text = input.trim();
-<<<<<<< Updated upstream
-    if (!text) return;
-    setInput('');
-    try {
-      await session.sendMessage(text);
-=======
     if (!text && !pendingImage && !pendingFile) return;
     if (!consultationId) return;
     setInput('');
@@ -204,16 +198,12 @@ export function LiveSessionScreen({
         setUploading(false);
       }
       await session.sendMessage(text, imageUrl);
->>>>>>> Stashed changes
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 80);
     } catch {
       setUploading(false);
       setInput(text);
-<<<<<<< Updated upstream
-=======
       if (imgUri) setPendingImage(imgUri);
       if (fileAttach) setPendingFile(fileAttach);
->>>>>>> Stashed changes
     }
   };
 
@@ -387,32 +377,7 @@ export function LiveSessionScreen({
 
         {/* Input */}
         {!isPast && !session.sessionEnded && (
-<<<<<<< Updated upstream
-          <View style={styles.inputBar}>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={input}
-                onChangeText={setInput}
-                placeholder="Type your message..."
-                placeholderTextColor="#9CA3AF"
-                multiline
-                style={styles.textInput}
-                editable={session.isConnected && !session.isJoining}
-              />
-              <Pressable
-                onPress={send}
-                disabled={!input.trim() || session.isSending || !session.isConnected}
-                style={[styles.sendBtn, (!input.trim() || !session.isConnected) && { backgroundColor: '#E5E7EB' }]}
-              >
-                {session.isSending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="send" size={16} color={input.trim() && session.isConnected ? '#fff' : '#9CA3AF'} />
-                )}
-              </Pressable>
-=======
           <>
-            {/* Attachment preview */}
             {(pendingImage || pendingFile) && (
               <View style={styles.attachPreviewBar}>
                 {pendingImage && (
@@ -436,7 +401,6 @@ export function LiveSessionScreen({
             )}
             <View style={styles.inputBar}>
               <View style={styles.inputWrap}>
-                {/* Attach + button */}
                 <TouchableOpacity onPress={openAttachSheet} style={styles.attachBtn}>
                   <Ionicons name="add" size={22} color="#0B1C5A" />
                 </TouchableOpacity>
@@ -461,13 +425,10 @@ export function LiveSessionScreen({
                   )}
                 </Pressable>
               </View>
->>>>>>> Stashed changes
             </View>
-          </View>
+          </>
         )}
       </KeyboardAvoidingView>
-<<<<<<< Updated upstream
-=======
 
       {/* Full-screen image preview */}
       <Modal
@@ -518,10 +479,7 @@ export function LiveSessionScreen({
                   <Text style={styles.sheetOptionSub}>Select a photo or image</Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sheetOption}
-                onPress={pickDocument}
-              >
+              <TouchableOpacity style={styles.sheetOption} onPress={pickDocument}>
                 <View style={styles.sheetIconBg}>
                   <Ionicons name="document-attach" size={22} color="#0B1C5A" />
                 </View>
@@ -537,7 +495,6 @@ export function LiveSessionScreen({
           </Pressable>
         </Modal>
       )}
->>>>>>> Stashed changes
     </SafeAreaView>
   );
 }
@@ -595,16 +552,11 @@ const styles = StyleSheet.create({
     flex: 1, fontSize: 15, color: '#111827', maxHeight: 100, paddingTop: 6, paddingBottom: 6,
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-<<<<<<< Updated upstream
-=======
 
-  /* Attach button */
   attachBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-
-  /* Attachment preview */
   attachPreviewBar: {
     paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
     backgroundColor: 'rgba(255,255,255,0.92)',
@@ -617,8 +569,6 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -8, right: -8,
     backgroundColor: '#fff', borderRadius: 11,
   },
-
-  /* Full-screen image preview */
   previewOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.93)',
@@ -641,8 +591,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* Action sheet */
   sheetOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
   },
@@ -670,5 +618,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6', borderRadius: 14,
   },
   sheetCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
->>>>>>> Stashed changes
 });
