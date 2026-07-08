@@ -12,6 +12,7 @@ import * as authService from '@/services/auth.service';
 import * as pharmacistService from '@/services/pharmacist.service';
 import * as usersService from '@/services/users.service';
 import { disconnectSocket } from '@/sockets/socketManager';
+import { registerForPushNotifications } from '@/utils/notifications';
 import type {
   AuthSession,
   MedVerifyUser,
@@ -122,6 +123,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
     });
   }, []);
+
+  // Register for push notifications whenever a session becomes active.
+  useEffect(() => {
+    if (!token) return;
+    registerForPushNotifications()
+      .then((pushToken) => {
+        if (pushToken) return usersService.updatePushToken(pushToken);
+      })
+      .catch(() => {});
+  }, [token]);
 
   const signup: AuthContextValue['signup'] = useCallback(
     (email, password, role) => authService.signup(email, password, role),

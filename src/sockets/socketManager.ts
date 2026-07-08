@@ -82,8 +82,8 @@ export function leaveSession(consultationId: string): void {
   joinAckCache.delete(consultationId);
 }
 
-export function sendMessage(consultationId: string, message: string): Promise<SocketAck> {
-  return emitWithAck('send_message', { consultationId, message });
+export function sendMessage(consultationId: string, message: string, imageUrl?: string | null): Promise<SocketAck> {
+  return emitWithAck('send_message', { consultationId, message, imageUrl: imageUrl ?? undefined });
 }
 
 export function endSessionViaSocket(consultationId: string): Promise<SocketAck> {

@@ -264,6 +264,7 @@ export interface ChatMessage {
   senderId: string;
   senderRole: UserRole;
   message: string;
+  imageUrl?: string | null;
   createdAt: string;
 }
 

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { api } from '@/api/client';
 import type {
   BookConsultationInput,
@@ -46,4 +47,21 @@ export async function endSession(
 ): Promise<{ id: string; status: ConsultationStatus; endedAt: string }> {
   const { data } = await api.patch(`/consultations/${id}/end`);
   return data.data;
+}
+
+export async function uploadMessageFile(
+  consultationId: string,
+  file: { uri: string; name: string; type: string },
+): Promise<string> {
+  const formData = new FormData();
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(file.uri)).blob();
+    formData.append('file', blob, file.name);
+  } else {
+    formData.append('file', file as unknown as Blob);
+  }
+  const { data } = await api.post(`/consultations/${consultationId}/messages/file`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data.data.fileUrl;
 }
