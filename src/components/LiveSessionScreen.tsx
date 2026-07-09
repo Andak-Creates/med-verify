@@ -10,6 +10,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -75,6 +76,56 @@ export function LiveSessionScreen({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const flatRef = useRef<FlatList>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  const openAttachSheet = () => {
+    setShowAttachSheet(true);
+    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+  };
+
+  const closeAttachSheet = () => {
+    Animated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }).start(() =>
+      setShowAttachSheet(false),
+    );
+  };
+
+  const takePhoto = async () => {
+    closeAttachSheet();
+    setTimeout(async () => {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow camera access to take a photo.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: false,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPendingImage(result.assets[0].uri);
+      }
+    }, 350);
+  };
+
+  const pickFromGallery = async () => {
+    closeAttachSheet();
+    setTimeout(async () => {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow photo library access to select a photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: false,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPendingImage(result.assets[0].uri);
+      }
+    }, 350);
+  };
 
   const pickDocument = async () => {
     closeAttachSheet();
