@@ -154,7 +154,13 @@ export default function EditProfileScreen() {
     setVacationMode(profile.vacationMode);
     setAvatarUri(profile.profileImage ?? null);
     if (profile.workingHours && profile.workingHours.length > 0) {
-      setSlots(profile.workingHours);
+      // Merge saved entries into the full 7-day template so every day
+      // always appears in the UI even if the DB only stored a subset.
+      const merged = DEFAULT_SLOTS.map(def => {
+        const saved = profile.workingHours!.find(s => s.day === def.day);
+        return saved ?? def;
+      });
+      setSlots(merged);
     }
   }, [profile]);
 
