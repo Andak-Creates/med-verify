@@ -249,6 +249,15 @@ export default function ScanQrScreen() {
             </View>
             <Text style={styles.actionLabel}>Enter NAFDAC</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/(user)/home/scan-ocr" as any)}
+            style={styles.actionCard}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: "#E8F5E9" }]}>
+              <Ionicons name="scan-outline" size={22} color="#0B1C5A" />
+            </View>
+            <Text style={styles.actionLabel}>Scan Label</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Last Verified Pill */}

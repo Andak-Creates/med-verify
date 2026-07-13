@@ -139,7 +139,7 @@ export default function PharmacistDetailScreen() {
           <TouchableOpacity
             style={styles.consultCard}
             disabled={pharmacist.vacationMode}
-            onPress={() => handleBook('chat')}
+            onPress={() => handleBook('audio')}
           >
             <View style={styles.consultIcon}>
               <Ionicons name="link" size={20} color="#312E81" style={{ transform: [{ rotate: '45deg' }] }} />
@@ -152,7 +152,7 @@ export default function PharmacistDetailScreen() {
             <TouchableOpacity
               style={[styles.bookBtn, pharmacist.vacationMode && { opacity: 0.5 }]}
               disabled={pharmacist.vacationMode}
-              onPress={() => handleBook('chat')}
+              onPress={() => handleBook('audio')}
             >
               <Text style={styles.bookBtnText}>Book Now →</Text>
             </TouchableOpacity>
