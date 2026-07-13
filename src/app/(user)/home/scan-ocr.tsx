@@ -226,7 +226,8 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
   scanningOverlay: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)",
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.65)",
     alignItems: "center", justifyContent: "center", gap: 14,
   },
   scanningText: { color: "#fff", fontSize: 16, fontWeight: "700" },

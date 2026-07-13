@@ -19,6 +19,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApiErrorMessage } from "@/api/client";
+import { getAiHistory, sendAiMessage } from "@/services/aiChat.service";
 
 type Message = {
   id: string;
@@ -29,33 +31,15 @@ type Message = {
 };
 
 const QUICK_SUGGESTIONS = [
+  "I have a headache",
+  "Tips for better sleep",
+  "Find me a pharmacist",
   "Is this drug safe?",
-  "Check expiry date",
-  "Drug interactions?",
-  "NAFDAC registered?",
 ];
 
-const MOCK_RESPONSES: Record<string, string> = {
-  default:
-    "I'm MedVerify AI, your health companion! I can help you verify medication authenticity, check drug interactions, and answer health-related questions. What would you like to know?",
-  safe: "To check if a drug is safe, scan its QR code or enter its NAFDAC number. I'll cross-reference it against Nigeria's official drug registry instantly. Would you like to scan one now?",
-  expiry:
-    "To check an expiry date, go to the Scan tab and either scan the barcode or take a photo of the packaging. The AI will extract and verify the printed date against the batch record.",
-  interaction:
-    "Drug interactions can be serious. Please tell me the names of the medications you're concerned about, and I'll flag any known adverse combinations.",
-  nafdac:
-    "Every legitimate drug sold in Nigeria must have a NAFDAC registration number. I can verify this for you — just scan the packaging or enter the NAFDAC number manually.",
-};
-
-function getResponse(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes("safe")) return MOCK_RESPONSES.safe;
-  if (lower.includes("expiry") || lower.includes("date"))
-    return MOCK_RESPONSES.expiry;
-  if (lower.includes("interaction")) return MOCK_RESPONSES.interaction;
-  if (lower.includes("nafdac") || lower.includes("register"))
-    return MOCK_RESPONSES.nafdac;
-  return MOCK_RESPONSES.default;
+function formatTime(iso?: string): string {
+  const d = iso ? new Date(iso) : new Date();
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function TypingIndicator({ color }: { color: string }) {
@@ -144,20 +128,46 @@ export default function AiChatScreen() {
 
   const BRAND_COLOR = "#0B1C5A";
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "0",
-      role: "assistant",
-      text: `Hi there! I'm ${assistantName}, your personal health companion. I can help verify medications, check NAFDAC registrations, and answer drug-related questions. How can I help you today?`,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    },
-  ]);
+  const greeting: Message = {
+    id: "greeting",
+    role: "assistant",
+    text: `Hi there! I'm ${assistantName}, your personal health companion. I can talk through symptoms and health questions, share tips, and point you to verified pharmacists you can book right here in MedVerify. How are you feeling today?`,
+    time: formatTime(),
+  };
+
+  const [messages, setMessages] = useState<Message[]>([greeting]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const listRef = useRef<FlatList>(null);
   const slideAnim = useRef(new Animated.Value(300)).current;
+
+  // Load saved conversation so it survives app restarts. If there's none yet,
+  // keep the local greeting.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const history = await getAiHistory();
+        if (cancelled || history.length === 0) return;
+        setMessages(
+          history.map((m) => ({
+            id: m.id,
+            role: m.role,
+            text: m.content,
+            time: formatTime(m.createdAt),
+          })),
+        );
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 150);
+      } catch {
+        // Offline or not signed in — the greeting stays and the user can still chat.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openAttachSheet = () => {
     setShowAttachSheet(true);
@@ -207,16 +217,19 @@ export default function AiChatScreen() {
   const scrollToBottom = () =>
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed && !pendingImage) return;
+    if ((!trimmed && !pendingImage) || isTyping) return;
+
+    // If the user only attached an image, send a sensible prompt to the AI.
+    const outgoing = trimmed || "I've attached an image of a medication. Can you help?";
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
       text: trimmed,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      imageUri: pendingImage ?? undefined, // TODO: upload to backend when endpoint is ready
+      time: formatTime(),
+      imageUri: pendingImage ?? undefined, // shown locally; image analysis is via the Scan feature
     };
     setMessages((prev) => [...prev, userMsg]);
     setInputText("");
@@ -224,19 +237,27 @@ export default function AiChatScreen() {
     setIsTyping(true);
     scrollToBottom();
 
-    // If it's image-only, give a short AI acknowledgement
-    const responseText = trimmed ? getResponse(trimmed) : "Got your image! I'll review it and get back to you shortly.";
-    setTimeout(() => {
-      setIsTyping(false);
+    try {
+      const { reply, createdAt } = await sendAiMessage(outgoing, assistantName);
       const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now() + 1}`,
         role: "assistant",
-        text: responseText,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: reply,
+        time: formatTime(createdAt),
       };
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (err) {
+      const aiMsg: Message = {
+        id: `${Date.now() + 1}`,
+        role: "assistant",
+        text: getApiErrorMessage(err, "I couldn't reach the health assistant just now. Please try again in a moment."),
+        time: formatTime(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } finally {
+      setIsTyping(false);
       scrollToBottom();
-    }, 1800);
+    }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
