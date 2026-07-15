@@ -13,6 +13,7 @@
       "bitcode": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio", "voip"],
         "NSCameraUsageDescription": "Allow MedVerify to access your camera for video consultations.",
         "NSMicrophoneUsageDescription": "Allow MedVerify to access your microphone for audio consultations.",
         "NSLocationWhenInUseUsageDescription": "Allow MedVerify to access your location to find nearby pharmacies.",
@@ -37,7 +38,9 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WAKE_LOCK",
-        "android.permission.BLUETOOTH"
+        "android.permission.BLUETOOTH",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ]
     },
     "web": {
