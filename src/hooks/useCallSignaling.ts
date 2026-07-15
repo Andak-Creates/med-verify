@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSocket } from '@/context/SocketContext';
+import {
+  startCallForegroundService,
+  stopCallForegroundService,
+} from '@/utils/callForegroundService';
 import type { CallSignalPayload, IceServer } from '@/types/api';
 
 export type CallStatus = 'idle' | 'calling' | 'ringing' | 'connecting' | 'in_call' | 'ended';
@@ -39,6 +43,7 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     setRemoteStream(null);
     pendingOfferRef.current = null;
     pendingCandidatesRef.current = [];
+    stopCallForegroundService().catch(() => {});
   }, []);
 
   const createPeer = useCallback(async (): Promise<RTCPeerConnection> => {
@@ -48,6 +53,9 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStreamRef.current = stream;
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+    // Keep the mic alive when the app is backgrounded mid-call (Android).
+    startCallForegroundService().catch(() => {});
 
     peer.ontrack = (event) => {
       setRemoteStream(event.streams[0] ?? null);

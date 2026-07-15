@@ -9,13 +9,19 @@ import { IncomingCallOverlay } from "../components/IncomingCallOverlay";
 import { AuthProvider } from "../context/AuthContext";
 import { CallProvider } from "../context/CallContext";
 import { SocketProvider } from "../context/SocketContext";
+import { registerCallForegroundService } from "@/utils/callForegroundService";
 import "../lib/webrtcGlobals";
 import "../global.css";
+
+// Register the Android foreground service that keeps a call's microphone alive
+// while the app is backgrounded. No-op on iOS/web.
+registerCallForegroundService();
 
 // Show notifications as banners even when the app is in the foreground.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
