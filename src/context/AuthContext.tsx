@@ -11,6 +11,7 @@ import { clearToken, getToken, onSessionExpired, setToken as persistToken } from
 import * as authService from '@/services/auth.service';
 import * as pharmacistService from '@/services/pharmacist.service';
 import * as usersService from '@/services/users.service';
+import * as paymentsService from '@/services/payments.service';
 import { disconnectSocket } from '@/sockets/socketManager';
 import { registerForPushNotifications } from '@/utils/notifications';
 import type {
@@ -51,12 +52,11 @@ interface AuthContextValue {
   refreshProfile: () => Promise<MedVerifyUser | null>;
   updateProfile: (updates: UserProfileUpdates) => Promise<MedVerifyUser>;
   uploadAvatar: (file: UploadableFile) => Promise<MedVerifyUser>;
-  // Local subscription state (no backend support yet)
+  // Subscription — isPro is server-sourced from the authenticated user.
   isPro: boolean;
   scanCount: number;
   incrementScanCount: () => void;
-  subscribeToPro: () => void;
-  unsubscribeFromPro: () => void;
+  cancelSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -65,17 +65,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MedVerifyUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPro, setIsPro] = useState(false);
   const [scanCount, setScanCount] = useState(0);
 
-  // Load persisted scan count and Pro status on mount
+  // Pro status is server-sourced from the authenticated user record.
+  const isPro = Boolean(user?.isPro);
+
+  // Load the persisted local scan counter on mount (display only — the server
+  // is the real gate).
   useEffect(() => {
     (async () => {
       try {
         const stored = await SecureStore.getItemAsync('medverify_scan_count');
         if (stored) setScanCount(parseInt(stored, 10));
-        const storedPro = await SecureStore.getItemAsync('medverify_is_pro');
-        if (storedPro === 'true') setIsPro(true);
       } catch {
         // Ignore — start from defaults if storage fails
       }
@@ -222,15 +223,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
-  const subscribeToPro = useCallback(() => {
-    setIsPro(true);
-    SecureStore.setItemAsync('medverify_is_pro', 'true').catch(() => {});
-  }, []);
-
-  const unsubscribeFromPro = useCallback(() => {
-    setIsPro(false);
-    SecureStore.setItemAsync('medverify_is_pro', 'false').catch(() => {});
-  }, []);
+  const cancelSubscription = useCallback(async () => {
+    await paymentsService.cancelSubscription();
+    await refreshProfile();
+  }, [refreshProfile]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -256,8 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isPro,
       scanCount,
       incrementScanCount,
-      subscribeToPro,
-      unsubscribeFromPro,
+      cancelSubscription,
     }),
     [
       user,
@@ -281,8 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isPro,
       scanCount,
       incrementScanCount,
-      subscribeToPro,
-      unsubscribeFromPro,
+      cancelSubscription,
     ],
   );
 

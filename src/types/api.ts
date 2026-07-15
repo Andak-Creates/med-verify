@@ -33,6 +33,8 @@ export interface MedVerifyUser {
   bloodGroup: string | null;
   allergies: string | null;
   chronicConditions: string | null;
+  isPro: boolean;
+  proExpiresAt: string | null;
   createdAt: string;
 }
 

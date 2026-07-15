@@ -1,18 +1,47 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
+import { initializeSubscription, verifyPayment } from '@/services/payments.service';
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { subscribeToPro } = useAuth();
+  const { refreshProfile } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = () => {
-    // TODO: wire up real payment (Paystack / Flutterwave)
-    subscribeToPro();
-    Alert.alert('Subscribed!', 'You are now on the Pro Plan. Enjoy unlimited scans!');
-    router.back();
+  const handleSubscribe = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { authorizationUrl, reference } = await initializeSubscription();
+
+      // Open Paystack checkout; the browser closes when the user finishes or cancels.
+      await WebBrowser.openBrowserAsync(authorizationUrl);
+
+      // Confirm the charge with the backend (the webhook is the ultimate source
+      // of truth, but this gives immediate feedback).
+      try {
+        const user = await verifyPayment(reference);
+        await refreshProfile();
+        if (user.isPro) {
+          Alert.alert('Welcome to Pro! 🎉', 'Your subscription is active. Enjoy unlimited access.');
+          router.back();
+        } else {
+          Alert.alert('Almost there', 'We haven’t confirmed your payment yet. If you were charged, Pro will activate shortly.');
+        }
+      } catch {
+        // Payment not completed / verification pending.
+        Alert.alert('Payment not confirmed', 'We couldn’t confirm a completed payment. If you were charged, it will activate shortly.');
+      }
+    } catch (err) {
+      Alert.alert('Could not start payment', getApiErrorMessage(err, 'Please try again in a moment.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,8 +86,17 @@ export default function PaywallScreen() {
         </View>
 
         {/* CTA */}
-        <TouchableOpacity style={styles.btn} onPress={handleSubscribe} activeOpacity={0.85}>
-          <Text style={styles.btnText}>Subscribe Now</Text>
+        <TouchableOpacity
+          style={[styles.btn, loading && { opacity: 0.7 }]}
+          onPress={handleSubscribe}
+          activeOpacity={0.85}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.btnText}>Subscribe Now</Text>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.footerText}>Cancel anytime. Terms & Conditions apply.</Text>
