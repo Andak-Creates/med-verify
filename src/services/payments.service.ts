@@ -11,6 +11,16 @@ export async function verifyPayment(reference: string): Promise<MedVerifyUser> {
   return data.data.user;
 }
 
+/**
+ * Asks the backend to reconcile Pro status straight from Paystack. Safe to call
+ * repeatedly — it's authoritative and doesn't depend on webhook delivery or on
+ * the checkout browser having closed.
+ */
+export async function syncSubscription(): Promise<MedVerifyUser> {
+  const { data } = await api.post('/payments/sync');
+  return data.data.user;
+}
+
 export async function cancelSubscription(): Promise<MedVerifyUser> {
   const { data } = await api.post('/payments/cancel');
   return data.data.user;

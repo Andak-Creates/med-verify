@@ -6,41 +6,73 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiErrorMessage } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
-import { initializeSubscription, verifyPayment } from '@/services/payments.service';
+import { initializeSubscription, syncSubscription } from '@/services/payments.service';
+
+const POLL_INTERVAL_MS = 3000;
+const POLL_ATTEMPTS = 30; // ~90s
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function PaywallScreen() {
   const router = useRouter();
   const { refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  const onProActivated = async () => {
+    await refreshProfile();
+    Alert.alert('Welcome to Pro! 🎉', 'Your subscription is active. Enjoy unlimited access.');
+    router.back();
+  };
 
   const handleSubscribe = async () => {
     if (loading) return;
     setLoading(true);
     try {
-      const { authorizationUrl, reference } = await initializeSubscription();
+      const { authorizationUrl } = await initializeSubscription();
 
-      // Open Paystack checkout; the browser closes when the user finishes or cancels.
+      // On native this blocks until the browser is dismissed; on web it opens a
+      // tab and resolves immediately — so we poll rather than checking once.
       await WebBrowser.openBrowserAsync(authorizationUrl);
 
-      // Confirm the charge with the backend (the webhook is the ultimate source
-      // of truth, but this gives immediate feedback).
-      try {
-        const user = await verifyPayment(reference);
-        await refreshProfile();
-        if (user.isPro) {
-          Alert.alert('Welcome to Pro! 🎉', 'Your subscription is active. Enjoy unlimited access.');
-          router.back();
-        } else {
-          Alert.alert('Almost there', 'We haven’t confirmed your payment yet. If you were charged, Pro will activate shortly.');
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+        try {
+          const user = await syncSubscription();
+          if (user.isPro) {
+            await onProActivated();
+            return;
+          }
+        } catch {
+          // Transient — keep polling.
         }
-      } catch {
-        // Payment not completed / verification pending.
-        Alert.alert('Payment not confirmed', 'We couldn’t confirm a completed payment. If you were charged, it will activate shortly.');
+        await delay(POLL_INTERVAL_MS);
       }
+
+      Alert.alert(
+        'Still confirming',
+        'We haven’t seen your payment yet. If you were charged, tap “Already paid? Refresh status” in a moment.',
+      );
     } catch (err) {
       Alert.alert('Could not start payment', getApiErrorMessage(err, 'Please try again in a moment.'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const user = await syncSubscription();
+      if (user.isPro) {
+        await onProActivated();
+      } else {
+        Alert.alert('No active subscription', 'We couldn’t find an active subscription for your account yet.');
+      }
+    } catch (err) {
+      Alert.alert('Could not check status', getApiErrorMessage(err, 'Please try again in a moment.'));
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -99,6 +131,20 @@ export default function PaywallScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Recovers a payment that completed but wasn't recorded (e.g. a missed webhook). */}
+        <TouchableOpacity
+          onPress={handleRefreshStatus}
+          disabled={loading || checking}
+          style={styles.refreshBtn}
+          activeOpacity={0.7}
+        >
+          {checking ? (
+            <ActivityIndicator size="small" color="#0B1C5A" />
+          ) : (
+            <Text style={styles.refreshText}>Already paid? Refresh status</Text>
+          )}
+        </TouchableOpacity>
+
         <Text style={styles.footerText}>Cancel anytime. Terms & Conditions apply.</Text>
       </View>
     </SafeAreaView>
@@ -149,5 +195,7 @@ const styles = StyleSheet.create({
     elevation: 5, marginBottom: 14,
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  refreshBtn: { alignItems: 'center', justifyContent: 'center', height: 32, marginBottom: 10 },
+  refreshText: { fontSize: 13, fontWeight: '700', color: '#0B1C5A', textDecorationLine: 'underline' },
   footerText: { textAlign: 'center', fontSize: 12, color: '#8E9CB2' },
 });

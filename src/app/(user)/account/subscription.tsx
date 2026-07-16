@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiErrorMessage } from '@/api/client';
+import { syncSubscription } from '@/services/payments.service';
 import { useAuth } from '../../../context/AuthContext';
 
 function formatRenewalDate(iso: string | null): string {
@@ -13,8 +14,25 @@ function formatRenewalDate(iso: string | null): string {
 
 export default function SubscriptionScreen() {
   const router = useRouter();
-  const { user, isPro, cancelSubscription } = useAuth();
+  const { user, isPro, cancelSubscription, refreshProfile } = useAuth();
   const [cancelling, setCancelling] = useState(false);
+
+  // Reconcile against Paystack on open so a payment that completed but wasn't
+  // recorded (missed webhook) self-heals.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await syncSubscription();
+        if (!cancelled) await refreshProfile();
+      } catch {
+        // Offline or payments unconfigured — leave the current state as-is.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshProfile]);
 
   const handleManage = () => {
     if (!isPro) {
