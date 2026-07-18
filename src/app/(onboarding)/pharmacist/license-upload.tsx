@@ -189,7 +189,7 @@ export default function LicenseUploadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     paddingHorizontal: 24,

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dimensions,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,7 +26,19 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, isPro, scanCount } = useAuth();
+  const { user, isPro, scanCount, refreshProfile } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshProfile();
+    } catch {
+      // Silently ignore — user data stays as-is
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshProfile]);
   
   const handleScanAction = (targetRoute: string) => {
     if (!isPro && scanCount >= 3) {
@@ -62,6 +75,14 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#0B1C5A"
+            colors={['#0B1C5A']}
+          />
+        }
       >
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>

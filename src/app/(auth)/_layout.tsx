@@ -1,9 +1,14 @@
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
+import { View, StyleSheet, ImageBackground } from 'react-native';
 
 export default function Layout() {
   return (
     <View style={{ flex: 1 }}>
+      <ImageBackground
+        source={require('../../../assets/images/background.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
       <View
         style={{
           position: 'absolute',
@@ -16,6 +21,7 @@ export default function Layout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: 'transparent' },
+          cardStyle: { backgroundColor: 'transparent' },
           animation: 'slide_from_right',
         }}
       />

@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import * as Notifications from "expo-notifications";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, ThemeProvider, DefaultTheme } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect } from "react";
 import { ImageBackground } from "react-native";
@@ -9,15 +9,28 @@ import { IncomingCallOverlay } from "../components/IncomingCallOverlay";
 import { AuthProvider } from "../context/AuthContext";
 import { CallProvider } from "../context/CallContext";
 import { SocketProvider } from "../context/SocketContext";
+import * as SystemUI from "expo-system-ui";
 import "../lib/webrtcGlobals";
 import "../global.css";
+
+// Force the root native view to be transparent so ImageBackground shows through
+SystemUI.setBackgroundColorAsync("transparent");
+
+const transparentTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: 'transparent',
+  },
+};
 
 // Show notifications as banners even when the app is in the foreground.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -48,25 +61,22 @@ export default function RootLayout() {
     <AuthProvider>
       <SocketProvider>
       <CallProvider>
-      <SafeAreaProvider style={{ flex: 1 }}>
-        <ImageBackground
-          source={require("../../assets/images/background.png")}
-          style={{ flex: 1 }}
-          resizeMode="cover"
-        >
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <ThemeProvider value={transparentTheme}>
           <Stack
             screenOptions={{
               contentStyle: { backgroundColor: "transparent" },
+              cardStyle: { backgroundColor: "transparent" },
               headerShown: false,
               animation: "fade",
             }}
           />
-        </ImageBackground>
+        </ThemeProvider>
         <NotificationTapHandler />
       </SafeAreaProvider>
       <IncomingCallOverlay />
       </CallProvider>
       </SocketProvider>
-    </AuthProvider>
+      </AuthProvider>
   );
 }

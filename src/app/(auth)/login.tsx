@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/api/client";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -14,7 +15,6 @@ import {
 import { FormError } from "../../components/FormError";
 import { useAuth } from "../../context/AuthContext";
 import { useGoogleSignIn } from "../../hooks/useGoogleSignIn";
-import { getApiErrorMessage } from "@/api/client";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -99,7 +99,7 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
-    router.back();
+    router.push("/pharmacy/sign-up" as any);
   };
 
   const handleForgotPassword = () => {

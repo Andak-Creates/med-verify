@@ -24,6 +24,7 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [showOtpRedirect, setShowOtpRedirect] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -160,7 +161,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7F9',
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     paddingHorizontal: 24,

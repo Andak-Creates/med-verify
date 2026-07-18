@@ -15,11 +15,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../../context/AuthContext";
 
 const AI_SETUP_KEY = 'medverify_ai_setup';
 
 export default function AiChatIntroScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const isEditMode = edit === '1';
 
@@ -123,21 +125,18 @@ export default function AiChatIntroScreen() {
           <View style={styles.header}>
             <Text style={styles.logoText}>MedVerify</Text>
             <View style={styles.headerActions}>
-              <Pressable style={styles.iconButton}>
-                <Ionicons
-                  name="notifications-outline"
-                  size={21}
-                  color="#312E81"
-                />
+              <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
+                <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
                 <View style={styles.notifDot} />
               </Pressable>
-              <Pressable style={styles.avatarButton}>
-                <Image
-                  source={{
-                    uri: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80",
-                  }}
-                  style={styles.avatarImg}
-                />
+              <Pressable style={styles.avatarButton} onPress={() => router.push('/(user)/account' as any)}>
+                {user?.profileImage ? (
+                  <Image source={{ uri: user.profileImage }} style={styles.avatarImg} />
+                ) : (
+                  <View style={[styles.avatarImg, { backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="person-outline" size={20} color="#0B1C5A" />
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>
@@ -349,24 +348,43 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 12 },
-  iconButton: { alignItems: "center", justifyContent: "center" },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   notifDot: {
-    position: "absolute",
-    top: 0,
-    right: 0,
+    position: 'absolute',
+    top: 7,
+    right: 7,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#EF4444",
+    backgroundColor: '#EF4444',
     borderWidth: 1.5,
-    borderColor: "#fff",
+    borderColor: '#fff',
   },
   avatarButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     overflow: "hidden",
     backgroundColor: "#E5E7EB",
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   avatarImg: { width: "100%", height: "100%" },
 

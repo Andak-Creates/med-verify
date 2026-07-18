@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Alert,
   Animated,
@@ -25,6 +25,12 @@ export default function ScanQrScreen() {
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [lastScan, setLastScan] = useState<ScanHistoryItem | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setScanned(false);
+    }, [])
+  );
 
   useEffect(() => {
     let cancelled = false;

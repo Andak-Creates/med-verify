@@ -5,13 +5,15 @@ import { ActivityIndicator, ImageBackground, Platform, StyleSheet, Text, Touchab
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 
+import { SplashLoading } from "../../components/SplashLoading";
+
 export default function PharmacistLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#0B1C5A" />
+      <View style={{ flex: 1 }}>
+        <SplashLoading />
       </View>
     );
   }
@@ -31,14 +33,7 @@ export default function PharmacistLayout() {
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
         screenLayout={({ children }) => (
-          <View style={{ flex: 1 }}>
-            <ImageBackground
-              source={require('../../../assets/images/background.png')}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.25)' }]} />
+          <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
             {children}
           </View>
         )}
@@ -150,7 +145,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-    height: 65,
+    minHeight: 65,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.05,

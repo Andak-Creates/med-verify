@@ -10,6 +10,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -75,6 +76,61 @@ export function LiveSessionScreen({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const flatRef = useRef<FlatList>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  const openAttachSheet = () => {
+    setShowAttachSheet(true);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 150,
+    }).start();
+  };
+
+  const closeAttachSheet = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setShowAttachSheet(false));
+  };
+
+  const pickFromGallery = async () => {
+    closeAttachSheet();
+    setTimeout(async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow access to your photo library to attach images.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPendingImage(result.assets[0].uri);
+      }
+    }, 350);
+  };
+
+  const takePhoto = async () => {
+    closeAttachSheet();
+    setTimeout(async () => {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow camera access to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPendingImage(result.assets[0].uri);
+      }
+    }, 350);
+  };
 
   const pickDocument = async () => {
     closeAttachSheet();
@@ -180,12 +236,6 @@ export function LiveSessionScreen({
 
   const send = async () => {
     const text = input.trim();
-<<<<<<< Updated upstream
-    if (!text) return;
-    setInput('');
-    try {
-      await session.sendMessage(text);
-=======
     if (!text && !pendingImage && !pendingFile) return;
     if (!consultationId) return;
     setInput('');
@@ -204,16 +254,12 @@ export function LiveSessionScreen({
         setUploading(false);
       }
       await session.sendMessage(text, imageUrl);
->>>>>>> Stashed changes
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 80);
     } catch {
       setUploading(false);
       setInput(text);
-<<<<<<< Updated upstream
-=======
       if (imgUri) setPendingImage(imgUri);
       if (fileAttach) setPendingFile(fileAttach);
->>>>>>> Stashed changes
     }
   };
 
@@ -387,30 +433,6 @@ export function LiveSessionScreen({
 
         {/* Input */}
         {!isPast && !session.sessionEnded && (
-<<<<<<< Updated upstream
-          <View style={styles.inputBar}>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={input}
-                onChangeText={setInput}
-                placeholder="Type your message..."
-                placeholderTextColor="#9CA3AF"
-                multiline
-                style={styles.textInput}
-                editable={session.isConnected && !session.isJoining}
-              />
-              <Pressable
-                onPress={send}
-                disabled={!input.trim() || session.isSending || !session.isConnected}
-                style={[styles.sendBtn, (!input.trim() || !session.isConnected) && { backgroundColor: '#E5E7EB' }]}
-              >
-                {session.isSending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="send" size={16} color={input.trim() && session.isConnected ? '#fff' : '#9CA3AF'} />
-                )}
-              </Pressable>
-=======
           <>
             {/* Attachment preview */}
             {(pendingImage || pendingFile) && (
@@ -461,13 +483,10 @@ export function LiveSessionScreen({
                   )}
                 </Pressable>
               </View>
->>>>>>> Stashed changes
             </View>
-          </View>
+          </>
         )}
       </KeyboardAvoidingView>
-<<<<<<< Updated upstream
-=======
 
       {/* Full-screen image preview */}
       <Modal
@@ -537,7 +556,6 @@ export function LiveSessionScreen({
           </Pressable>
         </Modal>
       )}
->>>>>>> Stashed changes
     </SafeAreaView>
   );
 }
@@ -595,8 +613,6 @@ const styles = StyleSheet.create({
     flex: 1, fontSize: 15, color: '#111827', maxHeight: 100, paddingTop: 6, paddingBottom: 6,
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-<<<<<<< Updated upstream
-=======
 
   /* Attach button */
   attachBtn: {
@@ -670,5 +686,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6', borderRadius: 14,
   },
   sheetCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
->>>>>>> Stashed changes
 });

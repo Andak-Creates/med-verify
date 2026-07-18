@@ -159,8 +159,9 @@ export default function AccountScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logoText}>MedVerify</Text>
-          <Pressable style={styles.iconButton}>
-            <Ionicons name="notifications-outline" size={21} color="#312E81" />
+          <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
+            <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
+            <View style={styles.notifDot} />
           </Pressable>
         </View>
 
@@ -458,8 +459,27 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
 
   /* Profile Card */

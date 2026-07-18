@@ -23,6 +23,7 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
   const localStreamRef = useRef<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
+  const candidateQueueRef = useRef<RTCIceCandidateInit[]>([]);
 
   const webrtcSupported =
     typeof globalThis.RTCPeerConnection === 'function' &&
@@ -35,6 +36,7 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     localStreamRef.current = null;
     setRemoteStream(null);
     pendingOfferRef.current = null;
+    candidateQueueRef.current = [];
   }, []);
 
   const createPeer = useCallback(async (): Promise<RTCPeerConnection> => {
@@ -60,6 +62,15 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
         setCallStatus('ended');
       }
     };
+    peer.oniceconnectionstatechange = () => {
+      if (peer.iceConnectionState === 'connected' || peer.iceConnectionState === 'completed') {
+        setCallStatus('in_call');
+      }
+      if (peer.iceConnectionState === 'failed') {
+        setError('The call connection failed. Please try again.');
+        setCallStatus('ended');
+      }
+    };
     return peer;
   }, [iceServers, socket, consultationId]);
 
@@ -78,6 +89,12 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
       try {
         await peerRef.current.setRemoteDescription(payload.sdp as RTCSessionDescriptionInit);
         setCallStatus('connecting');
+        
+        // Process queued candidates
+        while (candidateQueueRef.current.length > 0) {
+          const candidate = candidateQueueRef.current.shift();
+          if (candidate) await peerRef.current.addIceCandidate(candidate);
+        }
       } catch {
         setError('Could not establish the call.');
         setCallStatus('ended');
@@ -86,8 +103,16 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
 
     const onIceCandidate = async (payload: CallSignalPayload) => {
       if (payload.consultationId !== consultationId || !peerRef.current) return;
+      
+      const candidateInit = payload.candidate as RTCIceCandidateInit;
+      
+      if (!peerRef.current.remoteDescription) {
+        candidateQueueRef.current.push(candidateInit);
+        return;
+      }
+      
       try {
-        await peerRef.current.addIceCandidate(payload.candidate as RTCIceCandidateInit);
+        await peerRef.current.addIceCandidate(candidateInit);
       } catch {
         // Ignore candidates that arrive after the connection is torn down.
       }
@@ -169,6 +194,12 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
       socket.emit('call_answer', { consultationId, sdp: answer });
+      
+      // Process queued candidates
+      while (candidateQueueRef.current.length > 0) {
+        const candidate = candidateQueueRef.current.shift();
+        if (candidate) await peer.addIceCandidate(candidate);
+      }
     } catch {
       cleanupPeer();
       setError('Could not answer the call. Check your microphone permissions.');

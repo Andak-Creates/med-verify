@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
 
 const BRAND = '#0B1C5A';
 
@@ -51,6 +52,7 @@ function StepIndicator({ current }: { current: number }) {
 
 export default function ReportScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { code } = useLocalSearchParams<{ code: string }>();
   const [step, setStep] = useState(0);
 
@@ -232,13 +234,17 @@ export default function ReportScreen() {
               <Ionicons name="chevron-back" size={22} color={BRAND} />
             </TouchableOpacity>
             <View style={styles.headerRight}>
-              <Pressable style={styles.notifBtn}>
+              <Pressable style={styles.notifBtn} onPress={() => router.push('/(user)/account/notifications' as any)}>
                 <Ionicons name="notifications-outline" size={20} color={BRAND} />
                 <View style={styles.notifDot} />
               </Pressable>
-              <View style={styles.avatarCircle}>
-                <Ionicons name="person" size={18} color="#fff" />
-              </View>
+              <Pressable style={styles.avatarCircle} onPress={() => router.push('/(user)/account' as any)}>
+                {user?.profileImage ? (
+                  <Image source={{ uri: user.profileImage }} style={{ width: '100%', height: '100%', borderRadius: 18 }} />
+                ) : (
+                  <Ionicons name="person" size={18} color="#fff" />
+                )}
+              </Pressable>
             </View>
           </View>
 
@@ -295,16 +301,26 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  notifBtn: { position: 'relative', padding: 4 },
+  notifBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+  },
   notifDot: {
-    position: 'absolute', top: 2, right: 2,
+    position: 'absolute', top: 7, right: 7,
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#fff',
   },
   avatarCircle: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: '#9CA3AF',
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
 
   /* Step Indicator */

@@ -87,7 +87,7 @@ export default function OtpScreen() {
   const formattedTimer = `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, "0")}`;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAF9' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"

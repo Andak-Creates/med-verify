@@ -11,16 +11,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 
+import { SplashLoading } from "../../components/SplashLoading";
+
 export default function Layout() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color="#0B1C5A" />
+      <View style={{ flex: 1 }}>
+        <SplashLoading />
       </View>
     );
   }
+
 
   if (!isAuthenticated) {
     return <Redirect href={"/(onboarding)/splash" as any} />;

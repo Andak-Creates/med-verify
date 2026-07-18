@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,12 @@ export default function ScanOcrScreen() {
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [scanning, setScanning] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setScanning(false);
+    }, [])
+  );
 
   const handleCapture = async () => {
     if (scanning || !cameraRef.current) return;
@@ -226,7 +232,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
   scanningOverlay: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)",
+    ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.65)",
     alignItems: "center", justifyContent: "center", gap: 14,
   },
   scanningText: { color: "#fff", fontSize: 16, fontWeight: "700" },

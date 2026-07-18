@@ -196,7 +196,7 @@ export default function SlidesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7F9',
+    backgroundColor: 'transparent',
   },
   slide: {
     width,

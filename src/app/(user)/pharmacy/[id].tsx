@@ -31,7 +31,7 @@ export default function PharmacistDetailScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+        <Pressable onPress={() => router.push('/(user)/pharmacy' as any)} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color="#0B1C5A" />
         </Pressable>
         <Text style={styles.logoText}>MedVerify</Text>

@@ -139,7 +139,7 @@ export function AudioCallScreen({
       <RemoteAudioPlayer stream={remoteStream} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         {/* Back button — returns to the chat without ending the call */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={navigateToChat}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
 
