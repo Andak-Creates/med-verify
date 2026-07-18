@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSocket } from '@/context/SocketContext';
+import {
+  startCallForegroundService,
+  stopCallForegroundService,
+} from '@/utils/callForegroundService';
 import type { CallSignalPayload, IceServer } from '@/types/api';
 
 export type CallStatus = 'idle' | 'calling' | 'ringing' | 'connecting' | 'in_call' | 'ended';
@@ -23,7 +27,9 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
   const localStreamRef = useRef<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
-  const candidateQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  // ICE candidates that arrive before the peer/remote-description is ready
+  // are buffered here and flushed once setRemoteDescription completes.
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   const webrtcSupported =
     typeof globalThis.RTCPeerConnection === 'function' &&
@@ -36,7 +42,8 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     localStreamRef.current = null;
     setRemoteStream(null);
     pendingOfferRef.current = null;
-    candidateQueueRef.current = [];
+    pendingCandidatesRef.current = [];
+    stopCallForegroundService().catch(() => {});
   }, []);
 
   const createPeer = useCallback(async (): Promise<RTCPeerConnection> => {
@@ -46,6 +53,9 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStreamRef.current = stream;
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+    // Keep the mic alive when the app is backgrounded mid-call (Android).
+    startCallForegroundService().catch(() => {});
 
     peer.ontrack = (event) => {
       setRemoteStream(event.streams[0] ?? null);
@@ -88,13 +98,12 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
       if (payload.consultationId !== consultationId || !peerRef.current) return;
       try {
         await peerRef.current.setRemoteDescription(payload.sdp as RTCSessionDescriptionInit);
-        setCallStatus('connecting');
-        
-        // Process queued candidates
-        while (candidateQueueRef.current.length > 0) {
-          const candidate = candidateQueueRef.current.shift();
-          if (candidate) await peerRef.current.addIceCandidate(candidate);
+        // Flush any candidates that arrived before the answer was processed.
+        for (const c of pendingCandidatesRef.current) {
+          try { await peerRef.current.addIceCandidate(c); } catch {}
         }
+        pendingCandidatesRef.current = [];
+        setCallStatus('connecting');
       } catch {
         setError('Could not establish the call.');
         setCallStatus('ended');
@@ -102,17 +111,16 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     };
 
     const onIceCandidate = async (payload: CallSignalPayload) => {
-      if (payload.consultationId !== consultationId || !peerRef.current) return;
-      
-      const candidateInit = payload.candidate as RTCIceCandidateInit;
-      
-      if (!peerRef.current.remoteDescription) {
-        candidateQueueRef.current.push(candidateInit);
+      if (payload.consultationId !== consultationId) return;
+      const candidate = payload.candidate as RTCIceCandidateInit;
+      // Buffer candidates that arrive before the peer or remote description
+      // is ready — they are flushed in answerCall / onAnswer below.
+      if (!peerRef.current || !peerRef.current.remoteDescription) {
+        pendingCandidatesRef.current.push(candidate);
         return;
       }
-      
       try {
-        await peerRef.current.addIceCandidate(candidateInit);
+        await peerRef.current.addIceCandidate(candidate);
       } catch {
         // Ignore candidates that arrive after the connection is torn down.
       }
@@ -191,15 +199,14 @@ export function useCallSignaling(consultationId: string | undefined, iceServers:
     try {
       const peer = await createPeer();
       await peer.setRemoteDescription(pendingOfferRef.current);
+      // Flush candidates that arrived during the ringing phase.
+      for (const c of pendingCandidatesRef.current) {
+        try { await peer.addIceCandidate(c); } catch {}
+      }
+      pendingCandidatesRef.current = [];
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
       socket.emit('call_answer', { consultationId, sdp: answer });
-      
-      // Process queued candidates
-      while (candidateQueueRef.current.length > 0) {
-        const candidate = candidateQueueRef.current.shift();
-        if (candidate) await peer.addIceCandidate(candidate);
-      }
     } catch {
       cleanupPeer();
       setError('Could not answer the call. Check your microphone permissions.');

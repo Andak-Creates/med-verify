@@ -1,20 +1,69 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
+import { syncSubscription } from '@/services/payments.service';
 import { useAuth } from '../../../context/AuthContext';
+
+function formatRenewalDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 export default function SubscriptionScreen() {
   const router = useRouter();
-  const { isPro, unsubscribeFromPro } = useAuth();
+  const { user, isPro, cancelSubscription, refreshProfile } = useAuth();
+  const [cancelling, setCancelling] = useState(false);
+
+  // Reconcile against Paystack on open so a payment that completed but wasn't
+  // recorded (missed webhook) self-heals.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await syncSubscription();
+        if (!cancelled) await refreshProfile();
+      } catch {
+        // Offline or payments unconfigured — leave the current state as-is.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshProfile]);
 
   const handleManage = () => {
-    if (isPro) {
-      unsubscribeFromPro();
-    } else {
+    if (!isPro) {
       router.push('/(user)/account/paywall' as any);
+      return;
     }
+    Alert.alert(
+      'Cancel subscription?',
+      'Auto-renewal will stop, but you’ll keep Pro until your current period ends.',
+      [
+        { text: 'Keep Pro', style: 'cancel' },
+        {
+          text: 'Cancel Renewal',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await cancelSubscription();
+              Alert.alert('Auto-renewal cancelled', 'You’ll keep Pro until it expires.');
+            } catch (err) {
+              Alert.alert('Could not cancel', getApiErrorMessage(err, 'Please try again in a moment.'));
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ],
+    );
   };
+
+  const renewalDate = formatRenewalDate(user?.proExpiresAt ?? null);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -38,7 +87,13 @@ export default function SubscriptionScreen() {
             </View>
           )}
           <Text style={styles.title}>{isPro ? "You are on the Pro Plan" : "You are on the Basic Plan"}</Text>
-          <Text style={styles.subtitle}>{isPro ? "Your subscription will automatically renew on Oct 24, 2026." : "Upgrade to Pro to unlock unlimited features."}</Text>
+          <Text style={styles.subtitle}>
+            {isPro
+              ? renewalDate
+                ? `Your subscription renews on ${renewalDate}.`
+                : "Your Pro subscription is active."
+              : "Upgrade to Pro to unlock unlimited features."}
+          </Text>
           
           <View style={styles.divider} />
           
@@ -56,8 +111,12 @@ export default function SubscriptionScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.btnOutline} onPress={handleManage}>
-          <Text style={styles.btnOutlineText}>{isPro ? "Cancel Subscription" : "Upgrade to Pro"}</Text>
+        <TouchableOpacity style={[styles.btnOutline, cancelling && { opacity: 0.6 }]} onPress={handleManage} disabled={cancelling}>
+          {cancelling ? (
+            <ActivityIndicator color="#0B1C5A" />
+          ) : (
+            <Text style={styles.btnOutlineText}>{isPro ? "Cancel Subscription" : "Upgrade to Pro"}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

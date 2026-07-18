@@ -96,17 +96,18 @@ export function LiveSessionScreen({
     }).start(() => setShowAttachSheet(false));
   };
 
-  const pickFromGallery = async () => {
+  const takePhoto = async () => {
     closeAttachSheet();
     setTimeout(async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow access to your photo library to attach images.');
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow camera access to take a photo.');
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
         quality: 0.8,
+        allowsEditing: false,
       });
       if (!result.canceled && result.assets[0]) {
         setPendingImage(result.assets[0].uri);
@@ -114,17 +115,18 @@ export function LiveSessionScreen({
     }, 350);
   };
 
-  const takePhoto = async () => {
+  const pickFromGallery = async () => {
     closeAttachSheet();
     setTimeout(async () => {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow camera access to take photos.');
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow photo library access to select a photo.');
         return;
       }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
         quality: 0.8,
+        allowsEditing: false,
       });
       if (!result.canceled && result.assets[0]) {
         setPendingImage(result.assets[0].uri);
@@ -434,7 +436,6 @@ export function LiveSessionScreen({
         {/* Input */}
         {!isPast && !session.sessionEnded && (
           <>
-            {/* Attachment preview */}
             {(pendingImage || pendingFile) && (
               <View style={styles.attachPreviewBar}>
                 {pendingImage && (
@@ -458,7 +459,6 @@ export function LiveSessionScreen({
             )}
             <View style={styles.inputBar}>
               <View style={styles.inputWrap}>
-                {/* Attach + button */}
                 <TouchableOpacity onPress={openAttachSheet} style={styles.attachBtn}>
                   <Ionicons name="add" size={22} color="#0B1C5A" />
                 </TouchableOpacity>
@@ -537,10 +537,7 @@ export function LiveSessionScreen({
                   <Text style={styles.sheetOptionSub}>Select a photo or image</Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sheetOption}
-                onPress={pickDocument}
-              >
+              <TouchableOpacity style={styles.sheetOption} onPress={pickDocument}>
                 <View style={styles.sheetIconBg}>
                   <Ionicons name="document-attach" size={22} color="#0B1C5A" />
                 </View>
@@ -614,13 +611,10 @@ const styles = StyleSheet.create({
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 
-  /* Attach button */
   attachBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-
-  /* Attachment preview */
   attachPreviewBar: {
     paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
     backgroundColor: 'rgba(255,255,255,0.92)',
@@ -633,7 +627,6 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -8, right: -8,
     backgroundColor: '#fff', borderRadius: 11,
   },
-
   /* Full-screen image preview */
   previewOverlay: {
     flex: 1,

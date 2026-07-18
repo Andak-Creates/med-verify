@@ -10,11 +10,16 @@ import { AuthProvider } from "../context/AuthContext";
 import { CallProvider } from "../context/CallContext";
 import { SocketProvider } from "../context/SocketContext";
 import * as SystemUI from "expo-system-ui";
+import { registerCallForegroundService } from "@/utils/callForegroundService";
 import "../lib/webrtcGlobals";
 import "../global.css";
 
 // Force the root native view to be transparent so ImageBackground shows through
 SystemUI.setBackgroundColorAsync("transparent");
+
+// Register the Android foreground service that keeps a call's microphone alive
+// while the app is backgrounded. No-op on iOS/web.
+registerCallForegroundService();
 
 const transparentTheme = {
   ...DefaultTheme,

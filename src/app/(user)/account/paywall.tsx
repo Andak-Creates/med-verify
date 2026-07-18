@@ -1,18 +1,79 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getApiErrorMessage } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
+import { initializeSubscription, syncSubscription } from '@/services/payments.service';
+
+const POLL_INTERVAL_MS = 3000;
+const POLL_ATTEMPTS = 30; // ~90s
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { subscribeToPro } = useAuth();
+  const { refreshProfile } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  const handleSubscribe = () => {
-    // TODO: wire up real payment (Paystack / Flutterwave)
-    subscribeToPro();
-    Alert.alert('Subscribed!', 'You are now on the Pro Plan. Enjoy unlimited scans!');
+  const onProActivated = async () => {
+    await refreshProfile();
+    Alert.alert('Welcome to Pro! 🎉', 'Your subscription is active. Enjoy unlimited access.');
     router.back();
+  };
+
+  const handleSubscribe = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { authorizationUrl } = await initializeSubscription();
+
+      // On native this blocks until the browser is dismissed; on web it opens a
+      // tab and resolves immediately — so we poll rather than checking once.
+      await WebBrowser.openBrowserAsync(authorizationUrl);
+
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+        try {
+          const user = await syncSubscription();
+          if (user.isPro) {
+            await onProActivated();
+            return;
+          }
+        } catch {
+          // Transient — keep polling.
+        }
+        await delay(POLL_INTERVAL_MS);
+      }
+
+      Alert.alert(
+        'Still confirming',
+        'We haven’t seen your payment yet. If you were charged, tap “Already paid? Refresh status” in a moment.',
+      );
+    } catch (err) {
+      Alert.alert('Could not start payment', getApiErrorMessage(err, 'Please try again in a moment.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const user = await syncSubscription();
+      if (user.isPro) {
+        await onProActivated();
+      } else {
+        Alert.alert('No active subscription', 'We couldn’t find an active subscription for your account yet.');
+      }
+    } catch (err) {
+      Alert.alert('Could not check status', getApiErrorMessage(err, 'Please try again in a moment.'));
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -57,8 +118,31 @@ export default function PaywallScreen() {
         </View>
 
         {/* CTA */}
-        <TouchableOpacity style={styles.btn} onPress={handleSubscribe} activeOpacity={0.85}>
-          <Text style={styles.btnText}>Subscribe Now</Text>
+        <TouchableOpacity
+          style={[styles.btn, loading && { opacity: 0.7 }]}
+          onPress={handleSubscribe}
+          activeOpacity={0.85}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.btnText}>Subscribe Now</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Recovers a payment that completed but wasn't recorded (e.g. a missed webhook). */}
+        <TouchableOpacity
+          onPress={handleRefreshStatus}
+          disabled={loading || checking}
+          style={styles.refreshBtn}
+          activeOpacity={0.7}
+        >
+          {checking ? (
+            <ActivityIndicator size="small" color="#0B1C5A" />
+          ) : (
+            <Text style={styles.refreshText}>Already paid? Refresh status</Text>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.footerText}>Cancel anytime. Terms & Conditions apply.</Text>
@@ -111,5 +195,7 @@ const styles = StyleSheet.create({
     elevation: 5, marginBottom: 14,
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  refreshBtn: { alignItems: 'center', justifyContent: 'center', height: 32, marginBottom: 10 },
+  refreshText: { fontSize: 13, fontWeight: '700', color: '#0B1C5A', textDecorationLine: 'underline' },
   footerText: { textAlign: 'center', fontSize: 12, color: '#8E9CB2' },
 });
