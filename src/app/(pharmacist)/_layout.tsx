@@ -87,13 +87,20 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   ];
   const visibleRoutes = state.routes.filter((r: any) => mainTabs.includes(r.name));
 
+  const currentPrefix = currentRoute.name.split("/")[0];
+
   return (
     <View style={styles.container}>
       <View style={[styles.barBackground, { paddingBottom: bottomPad }]}>
         {visibleRoutes.map((route: any) => {
           const { options } = descriptors[route.key];
           const label: string = options.title ?? route.name;
-          const focused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
+          const routePrefix = route.name.split("/")[0];
+
+          let focused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
+          if (!mainTabs.includes(currentRoute.name)) {
+            focused = routePrefix === currentPrefix;
+          }
 
           const onPress = () => {
             const event = navigation.emit({

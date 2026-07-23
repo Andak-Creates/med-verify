@@ -35,7 +35,15 @@ function InfoRow({ label, value }: { label: string; value: string | null }) {
 
 export default function DrugDetailsScreen() {
   const router = useRouter();
-  const { code, result } = useLocalSearchParams<{ code: string; result?: string }>();
+  const { code, result, from } = useLocalSearchParams<{ code: string; result?: string; from?: string }>();
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(from === 'history' ? ('/(user)/history' as any) : ('/(user)/home' as any));
+    }
+  };
 
   const drug = useMemo<DrugVerificationResult | null>(() => {
     if (!result) return null;
@@ -55,7 +63,7 @@ export default function DrugDetailsScreen() {
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}
         >
           <Ionicons name="chevron-back" size={22} color="#0B1C5A" />

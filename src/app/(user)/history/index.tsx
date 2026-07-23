@@ -117,7 +117,7 @@ export default function HistoryScreen() {
       registryStatus: item.status === "verified" ? "Active" : null,
       approvalDate: null,
     });
-    router.push({ pathname: "/(user)/home/result", params: { code: item.nafdacNumber, result } } as any);
+    router.push({ pathname: "/(user)/home/result", params: { code: item.nafdacNumber, result, from: "history" } } as any);
   };
 
   const renderConsultationCard = (c: Consultation) => {

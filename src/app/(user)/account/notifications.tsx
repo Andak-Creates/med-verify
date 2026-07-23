@@ -61,7 +61,7 @@ export default function NotificationsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(user)/account' as any)} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color="#0B1C5A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>

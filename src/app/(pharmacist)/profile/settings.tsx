@@ -76,7 +76,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/profile' as any)} style={{ marginRight: 12 }}>
             <Ionicons name="arrow-back" size={24} color="#0B1C5A" />
           </TouchableOpacity>
           {profile?.profileImage ? (
@@ -95,44 +95,7 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* CONSULTATION FEES */}
-        <Text style={styles.sectionHeader}>CONSULTATION FEES</Text>
-        <View style={styles.card}>
-          
-          <View style={styles.feeItem}>
-            <View>
-              <Text style={styles.feeTitle}>Drug-Specific Inquiry</Text>
-              <Text style={styles.feeAmount}>
-                {profile ? `₦${profile.feeDrugInquiry.toLocaleString()}` : '—'}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/(pharmacist)/profile/fee-settings' as any)}>
-              <Text style={styles.editBtnText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.feeItem}>
-            <View>
-              <Text style={styles.feeTitle}>Full Health Consultation</Text>
-              <Text style={styles.feeAmount}>
-                {profile ? `₦${profile.feeFullConsultation.toLocaleString()}` : '—'}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/(pharmacist)/profile/fee-settings' as any)}>
-              <Text style={styles.editBtnText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.pricingInfoBox}>
-            <View style={styles.pricingAccentBar} />
-            <Text style={styles.pricingInfoText}>
-              Prices must be within the ₦1,000 - ₦10,000 range. A 10% platform fee applies to all earnings.
-            </Text>
-          </View>
-
-        </View>
 
         {/* ACCOUNT SECURITY */}
         <Text style={styles.sectionHeader}>ACCOUNT SECURITY</Text>
@@ -374,60 +337,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  feeItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  feeTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  feeAmount: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0B1C5A',
-  },
-  editBtn: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  editBtnText: {
-    color: '#1E1B4B',
-    fontSize: 13,
-    fontWeight: '600',
-  },
+
   divider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginVertical: 16,
-  },
-  pricingInfoBox: {
-    backgroundColor: '#EEF2FF',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 16,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  pricingAccentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: '#1E1B4B',
-  },
-  pricingInfoText: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 20,
-    marginLeft: 4,
+    marginVertical: 12,
   },
   listItem: {
     flexDirection: 'row',

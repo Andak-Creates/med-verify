@@ -110,7 +110,7 @@ export default function DashboardScreen() {
             )}
           </TouchableOpacity>
           <View>
-            <Text style={styles.headerTitle}>MedVerify Pro</Text>
+            <Text style={styles.headerTitle}>{(profile?.fullName ?? profile?.username ?? 'Pharmacist').split(' ')[0]}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isAvailable ? '#10B981' : '#9CA3AF' }} />
               <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>

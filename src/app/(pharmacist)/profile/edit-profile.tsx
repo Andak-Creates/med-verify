@@ -129,7 +129,7 @@ function TimePickerModal({ visible, title, hour, minute, onConfirm, onClose }: T
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { profile, isLoading, error, update, reload } = usePharmacistProfile();
+  const { profile, isLoading, error, update, updateFees, reload } = usePharmacistProfile();
   const { uploadAvatar } = useAuth();
 
   const [fullName, setFullName] = useState('');
@@ -143,6 +143,11 @@ export default function EditProfileScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // Fee state
+  const [feeDrugInquiry, setFeeDrugInquiry] = useState('');
+  const [feeFullConsultation, setFeeFullConsultation] = useState('');
+  const [editingFee, setEditingFee] = useState<'feeDrugInquiry' | 'feeFullConsultation' | null>(null);
+
   // Prefill the form once the profile loads.
   useEffect(() => {
     if (!profile) return;
@@ -153,6 +158,8 @@ export default function EditProfileScreen() {
     setPharmacyAddress(profile.pharmacyAddress ?? '');
     setVacationMode(profile.vacationMode);
     setAvatarUri(profile.profileImage ?? null);
+    setFeeDrugInquiry(String(profile.feeDrugInquiry ?? ''));
+    setFeeFullConsultation(String(profile.feeFullConsultation ?? ''));
     if (profile.workingHours && profile.workingHours.length > 0) {
       // Merge saved entries into the full 7-day template so every day
       // always appears in the UI even if the DB only stored a subset.
@@ -199,6 +206,11 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const feeInquiryNum = parseInt(feeDrugInquiry, 10);
+      const feeConsultNum = parseInt(feeFullConsultation, 10);
+      if (!isNaN(feeInquiryNum) && !isNaN(feeConsultNum)) {
+        await updateFees({ feeDrugInquiry: feeInquiryNum, feeFullConsultation: feeConsultNum });
+      }
       await update({
         fullName: fullName.trim(),
         specialty: specialty.trim(),
@@ -208,7 +220,11 @@ export default function EditProfileScreen() {
         vacationMode,
         workingHours: slots,
       });
-      router.back();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(pharmacist)/profile' as any);
+      }
     } catch (err) {
       Alert.alert('Could not save', getApiErrorMessage(err, 'Please try again.'));
     } finally {
@@ -250,7 +266,7 @@ export default function EditProfileScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/profile' as any)} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#0B1C5A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
@@ -339,6 +355,76 @@ export default function EditProfileScreen() {
           />
         </View>
 
+        {/* Consultation Fees */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Consultation Fees</Text>
+          <Text style={[styles.hintText, { marginBottom: 16 }]}>
+            Set your rates. Must be ₦1,000–₦10,000. A 10% platform commission applies to all payouts.
+          </Text>
+
+          {[
+            { id: 'feeDrugInquiry' as const, label: 'Drug-Specific Inquiry', desc: 'Quick questions about specific medications', icon: 'link-outline', value: feeDrugInquiry, set: setFeeDrugInquiry },
+            { id: 'feeFullConsultation' as const, label: 'Full Health Consultation', desc: 'Comprehensive patient consultation session', icon: 'medkit-outline', value: feeFullConsultation, set: setFeeFullConsultation },
+          ].map((fee) => {
+            const isEditing = editingFee === fee.id;
+            const num = parseInt(fee.value, 10);
+            const valid = !isNaN(num) && num >= 1000 && num <= 10000;
+            const net = valid ? (num * 0.9).toLocaleString('en-NG') : '—';
+            return (
+              <View key={fee.id} style={styles.feeCard}>
+                <View style={styles.feeCardHeader}>
+                  <View style={styles.feeIconWrap}>
+                    <Ionicons name={fee.icon as any} size={18} color="#0B1C5A" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.feeCardLabel}>{fee.label}</Text>
+                    <Text style={styles.feeCardDesc}>{fee.desc}</Text>
+                  </View>
+                </View>
+                <View style={styles.feeAmountRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.feeAmountMeta}>Your Price</Text>
+                    {isEditing ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={styles.feeCurrency}>₦</Text>
+                        <TextInput
+                          style={[styles.feeInput, !valid && { borderColor: '#EF4444' }]}
+                          keyboardType="numeric"
+                          value={fee.value}
+                          onChangeText={(v) => fee.set(v.replace(/[^0-9]/g, ''))}
+                          autoFocus
+                        />
+                      </View>
+                    ) : (
+                      <Text style={styles.feeAmountDisplay}>
+                        {valid ? `₦${num.toLocaleString('en-NG')}` : '—'}
+                      </Text>
+                    )}
+                    {isEditing && !valid && (
+                      <Text style={{ fontSize: 11, color: '#EF4444', marginTop: 2 }}>
+                        Must be ₦1,000–₦10,000
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.feeAmountMeta}>You Receive</Text>
+                    <Text style={styles.feeNetAmount}>₦{net}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.feeEditBtn, isEditing && valid && styles.feeEditBtnActive]}
+                  onPress={() => setEditingFee(isEditing ? null : fee.id)}
+                >
+                  <Ionicons name={isEditing ? 'checkmark' : 'pencil'} size={14} color={isEditing && valid ? '#fff' : '#0B1C5A'} />
+                  <Text style={[styles.feeEditBtnText, isEditing && valid && { color: '#fff' }]}>
+                    {isEditing ? 'Done' : 'Edit'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+
         {/* Availability & Hours */}
         <View style={styles.card}>
           <View style={styles.availabilityHeader}>
@@ -422,7 +508,7 @@ export default function EditProfileScreen() {
               <Text style={styles.saveBtnText}>Save Changes</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/profile' as any)}>
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -519,6 +605,40 @@ const styles = StyleSheet.create({
   saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   cancelBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#94A3B8' },
   cancelBtnText: { color: '#0B1C5A', fontSize: 14, fontWeight: '700' },
+
+  // ── Fee card styles ──
+  feeCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  feeCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
+  feeIconWrap: {
+    width: 36, height: 36, borderRadius: 9,
+    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
+  },
+  feeCardLabel: { fontSize: 13, fontWeight: '800', color: '#0B1C5A', marginBottom: 2 },
+  feeCardDesc: { fontSize: 11, color: '#64748B' },
+  feeAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10 },
+  feeAmountMeta: { fontSize: 10, fontWeight: '700', color: '#94A3B8', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  feeAmountDisplay: { fontSize: 20, fontWeight: '900', color: '#0B1C5A' },
+  feeNetAmount: { fontSize: 16, fontWeight: '800', color: '#065F46' },
+  feeCurrency: { fontSize: 16, fontWeight: '800', color: '#0B1C5A' },
+  feeInput: {
+    flex: 1, borderWidth: 1.5, borderColor: '#C7D2FE',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    fontSize: 16, fontWeight: '700', color: '#0B1C5A',
+  },
+  feeEditBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#EEF2FF', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'flex-start',
+  },
+  feeEditBtnActive: { backgroundColor: '#0B1C5A' },
+  feeEditBtnText: { fontSize: 12, fontWeight: '700', color: '#0B1C5A' },
 
   // ── Modal ──
   modalOverlay: {

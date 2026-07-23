@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,32 +17,17 @@ import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
 import * as pharmacistsService from '@/services/pharmacists.service';
 import type { PublicPharmacist, WorkingHoursEntry } from '@/types/api';
 
-function maskCredential(value: string | null): string {
-  if (!value) return 'Not provided';
-  if (value.length <= 4) return value;
-  return `${'*'.repeat(Math.max(value.length - 4, 2))}${value.slice(-4)}`;
-}
-
 function formatTime(h: number, m: number): string {
   const period = h >= 12 ? 'PM' : 'AM';
   const hh = h % 12 === 0 ? 12 : h % 12;
   return `${hh}:${String(m).padStart(2, '0')} ${period}`;
 }
 
-function formatWorkingHours(hours: WorkingHoursEntry[] | null): string[] {
-  const enabled = (hours ?? []).filter((entry) => entry.enabled);
-  if (enabled.length === 0) return ['Not configured'];
-  return enabled.map(
-    (entry) =>
-      `${entry.day.slice(0, 3)}: ${formatTime(entry.startH, entry.startM)} - ${formatTime(entry.endH, entry.endM)}`,
-  );
-}
-
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, isLoading, error, reload } = usePharmacistProfile();
-  // Public stats (rating, consult counts) come from the marketplace endpoint.
   const [publicStats, setPublicStats] = useState<PublicPharmacist | null>(null);
+  const [showPcnModal, setShowPcnModal] = useState(false);
 
   useEffect(() => {
     if (!profile?.profileId) return;
@@ -76,7 +63,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const workingHourLines = formatWorkingHours(profile.workingHours);
+  const enabledHours = (profile.workingHours ?? []).filter((e) => e.enabled);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -90,7 +77,7 @@ export default function ProfileScreen() {
               <Ionicons name="person-outline" size={16} color="#0B1C5A" />
             </View>
           )}
-          <Text style={styles.headerTitle}>MedVerify</Text>
+          <Text style={styles.headerTitle}>{(profile.fullName ?? profile.username ?? 'Profile').split(' ')[0]}</Text>
         </View>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
           <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
@@ -172,28 +159,49 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Professional Details */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Professional Details</Text>
           <View style={styles.divider} />
 
-          <View style={[styles.rowItem, { marginBottom: 16 }]}>
-            <Ionicons name="id-card-outline" size={22} color="#475569" style={styles.rowIcon} />
-            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.rowTitle}>PCN Licence</Text>
-              <Text style={styles.rowValue}>{maskCredential(profile.pcn)}</Text>
+          {/* PCN Licence — tappable */}
+          <TouchableOpacity style={[styles.rowItem, styles.tappableRow]} onPress={() => setShowPcnModal(true)} activeOpacity={0.7}>
+            <View style={styles.rowIconWrap}>
+              <Ionicons name="id-card-outline" size={20} color="#0B1C5A" />
             </View>
-          </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>PCN Licence</Text>
+              <Text style={styles.rowSub}>{profile.pcn ? `••••${profile.pcn.slice(-4)}` : 'Not provided'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+          </TouchableOpacity>
 
-          <View style={styles.rowItem}>
-            <Ionicons name="time-outline" size={22} color="#475569" style={styles.rowIcon} />
-            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={styles.divider} />
+
+          {/* Business Hours */}
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <View style={styles.rowIconWrap}>
+                <Ionicons name="time-outline" size={20} color="#0B1C5A" />
+              </View>
               <Text style={styles.rowTitle}>Business Hours</Text>
-              <View style={{ alignItems: 'flex-end' }}>
-                {workingHourLines.map((line) => (
-                  <Text key={line} style={styles.rowValue}>{line}</Text>
+            </View>
+            {enabledHours.length === 0 ? (
+              <Text style={[styles.rowSub, { paddingLeft: 48 }]}>Not configured</Text>
+            ) : (
+              <View style={styles.hoursGrid}>
+                {enabledHours.map((entry) => (
+                  <View key={entry.day} style={styles.hoursRow}>
+                    <View style={styles.hoursDayBadge}>
+                      <Text style={styles.hoursDay}>{entry.day.slice(0, 3).toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.hoursTime}>
+                      {formatTime(entry.startH, entry.startM)} – {formatTime(entry.endH, entry.endM)}
+                    </Text>
+                  </View>
                 ))}
               </View>
-            </View>
+            )}
           </View>
         </View>
 
@@ -211,13 +219,54 @@ export default function ProfileScreen() {
             style={[styles.actionBtn, styles.shareBtn]}
             onPress={() => router.push('/(pharmacist)/profile/settings' as any)}
           >
-            {/* Re-using share button as settings temporarily or keep it as share */}
             <Ionicons name="settings-outline" size={18} color="#0B1C5A" />
             <Text style={styles.shareBtnText}>Settings</Text>
           </TouchableOpacity>
         </View>
 
       </ScrollView>
+
+      {/* PCN Licence Modal */}
+      <Modal visible={showPcnModal} transparent animationType="slide" onRequestClose={() => setShowPcnModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPcnModal(false)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>PCN Licence Details</Text>
+
+            {/* Licence Number */}
+            <View style={styles.licenceCard}>
+              <View style={styles.licenceIconWrap}>
+                <Ionicons name="id-card" size={28} color="#0B1C5A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.licenceLabel}>Licence Number</Text>
+                <Text style={styles.licenceValue}>{profile.pcn ?? 'Not provided'}</Text>
+              </View>
+            </View>
+
+            {/* Certificate Image */}
+            {profile.certificateImage ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.licenceLabel}>Uploaded Certificate</Text>
+                <Image
+                  source={{ uri: profile.certificateImage }}
+                  style={styles.certificateImg}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <View style={styles.noCertBox}>
+                <Ionicons name="document-outline" size={28} color="#94A3B8" />
+                <Text style={{ marginTop: 8, color: '#64748B', textAlign: 'center' }}>No certificate uploaded</Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowPcnModal(false)}>
+              <Text style={styles.modalCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -365,15 +414,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
+  tappableRow: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  rowIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
   rowIcon: {
     marginRight: 12,
     marginTop: 2,
   },
   rowTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   rowSub: {
     fontSize: 13,
@@ -384,6 +447,38 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontFamily: 'monospace',
     fontWeight: '600',
+  },
+  hoursGrid: {
+    marginTop: 12,
+    gap: 8,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0B1C5A',
+  },
+  hoursDayBadge: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  hoursDay: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    letterSpacing: 0.5,
+  },
+  hoursTime: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
   },
   divider: {
     height: 1,
@@ -421,6 +516,89 @@ const styles = StyleSheet.create({
   shareBtnText: {
     color: '#0B1C5A',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  // PCN Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    marginBottom: 20,
+  },
+  licenceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+  },
+  licenceIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  licenceLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  licenceValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    letterSpacing: 1,
+  },
+  certificateImg: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  noCertBox: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  modalCloseBtn: {
+    backgroundColor: '#0B1C5A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  modalCloseBtnText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

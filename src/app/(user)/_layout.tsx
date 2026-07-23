@@ -126,9 +126,22 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         {visibleRoutes.map((route: any) => {
           const { options } = descriptors[route.key];
           const label: string = options.title ?? route.name;
-          const focused =
+          let focused =
             state.index ===
             state.routes.findIndex((r: any) => r.key === route.key);
+
+          const isChildHomeRoute =
+            currentRoute.name.startsWith("home/") &&
+            currentRoute.name !== "home/index";
+          const isFromHistory = currentRoute.params?.from === "history";
+
+          if (isChildHomeRoute) {
+            if (route.name === "history/index") {
+              focused = isFromHistory;
+            } else if (route.name === "home/index") {
+              focused = !isFromHistory;
+            }
+          }
 
           const onPress = () => {
             const isRestricted =

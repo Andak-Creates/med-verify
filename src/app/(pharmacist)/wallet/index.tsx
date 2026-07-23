@@ -1,23 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
+import { usePharmacistConsultations } from '@/hooks/usePharmacistConsultations';
+
+function formatEarningDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export default function WalletScreen() {
   const router = useRouter();
+  const { profile } = usePharmacistProfile();
+  const firstName = (profile?.fullName ?? profile?.username ?? 'Wallet').split(' ')[0];
+
+  const { items: pastConsultations, isLoading } = usePharmacistConsultations('past');
+  
+  const completed = pastConsultations.filter(c => c.status === 'COMPLETED');
+  const totalEarnings = completed.reduce((sum, c) => sum + (c.feeAmount * 0.9), 0);
+  const availableBalance = totalEarnings; // Assuming all completed earnings are available
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80' }} 
-            style={styles.avatar} 
-          />
-          <Text style={styles.headerTitle}>MedVerify</Text>
+          <TouchableOpacity onPress={() => router.push('/(pharmacist)/profile' as any)}>
+            {profile?.profileImage ? (
+              <Image source={{ uri: profile.profileImage }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person-outline" size={18} color="#0B1C5A" />
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{firstName}</Text>
         </View>
-        <TouchableOpacity style={styles.notificationBtn}>
+        <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
           <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
         </TouchableOpacity>
       </View>
@@ -28,14 +47,14 @@ export default function WalletScreen() {
         <View style={styles.balanceCard}>
           <View style={styles.balanceTop}>
             <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
-            <Text style={styles.balanceAmount}>₦85,400.00</Text>
+            <Text style={styles.balanceAmount}>₦{availableBalance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
           
           <View style={styles.balanceDivider} />
           
           <View style={styles.balanceBottom}>
             <Text style={styles.totalEarningsLabel}>Total Earnings</Text>
-            <Text style={styles.totalEarningsAmount}>₦142,500.00</Text>
+            <Text style={styles.totalEarningsAmount}>₦{totalEarnings.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
 
           {/* Decorative Circle */}
@@ -66,77 +85,43 @@ export default function WalletScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.earningsList}>
-          
-          {/* Item 1 */}
-          <View style={styles.earningItem}>
-            <View style={styles.earningLeft}>
-              <View style={[styles.earningIconBox, { backgroundColor: '#E0E7FF' }]}>
-                <Ionicons name="medkit-outline" size={20} color="#3730A3" />
-              </View>
-              <View>
-                <Text style={styles.earningName}>Amara Okafor</Text>
-                <Text style={styles.earningMeta}>Full Health • Oct 24, 2023</Text>
-              </View>
-            </View>
-            <View style={styles.earningRight}>
-              <Text style={styles.earningValueGreen}>+ ₦6,750.00</Text>
-              <Text style={styles.earningValueStrikethrough}>₦7,500</Text>
-            </View>
-          </View>
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#0B1C5A" style={{ marginTop: 20, marginBottom: 40 }} />
+        ) : (
+          <View style={styles.earningsList}>
+            {completed.length === 0 ? (
+              <Text style={{ textAlign: 'center', color: '#64748B', marginTop: 10, marginBottom: 20 }}>No earnings yet.</Text>
+            ) : (
+              completed.slice(0, 5).map((consultation) => {
+                const isDrug = consultation.consultationType !== 'both' && consultation.feeAmount < 4000; // heuristic or check fee amount
+                const iconName = consultation.feeAmount > 4000 ? 'medkit-outline' : 'link-outline';
+                const iconColor = consultation.feeAmount > 4000 ? '#3730A3' : '#6B21A8';
+                const iconBg = consultation.feeAmount > 4000 ? '#E0E7FF' : '#F3E8FF';
+                const typeLabel = consultation.feeAmount > 4000 ? 'Full Health' : 'Drug Inquiry';
 
-          {/* Item 2 */}
-          <View style={styles.earningItem}>
-            <View style={styles.earningLeft}>
-              <View style={[styles.earningIconBox, { backgroundColor: '#F3E8FF' }]}>
-                <Ionicons name="link-outline" size={20} color="#6B21A8" />
-              </View>
-              <View>
-                <Text style={styles.earningName}>David Chen</Text>
-                <Text style={styles.earningMeta}>Drug Inquiry • Oct 23, 2023</Text>
-              </View>
-            </View>
-            <View style={styles.earningRight}>
-              <Text style={styles.earningValueGreen}>+ ₦2,250.00</Text>
-              <Text style={styles.earningValueStrikethrough}>₦2,500</Text>
-            </View>
-          </View>
+                const netFee = consultation.feeAmount * 0.9;
 
-          {/* Item 3 */}
-          <View style={styles.earningItem}>
-            <View style={styles.earningLeft}>
-              <View style={[styles.earningIconBox, { backgroundColor: '#F3E8FF' }]}>
-                <Ionicons name="link-outline" size={20} color="#6B21A8" />
-              </View>
-              <View>
-                <Text style={styles.earningName}>Tunde Afolayan</Text>
-                <Text style={styles.earningMeta}>Drug Inquiry • Oct 21, 2023</Text>
-              </View>
-            </View>
-            <View style={styles.earningRight}>
-              <Text style={styles.earningValueGreen}>+ ₦2,250.00</Text>
-              <Text style={styles.earningValueStrikethrough}>₦2,500</Text>
-            </View>
+                return (
+                  <View key={consultation.id} style={styles.earningItem}>
+                    <View style={styles.earningLeft}>
+                      <View style={[styles.earningIconBox, { backgroundColor: iconBg }]}>
+                        <Ionicons name={iconName} size={20} color={iconColor} />
+                      </View>
+                      <View>
+                        <Text style={styles.earningName}>{consultation.patient.fullName ?? 'Patient'}</Text>
+                        <Text style={styles.earningMeta}>{typeLabel} • {formatEarningDate(consultation.consultationDate)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.earningRight}>
+                      <Text style={styles.earningValueGreen}>+ ₦{netFee.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                      <Text style={styles.earningValueStrikethrough}>₦{consultation.feeAmount.toLocaleString('en-NG')}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
-
-          {/* Item 4 */}
-          <View style={styles.earningItem}>
-            <View style={styles.earningLeft}>
-              <View style={[styles.earningIconBox, { backgroundColor: '#E0E7FF' }]}>
-                <Ionicons name="medkit-outline" size={20} color="#3730A3" />
-              </View>
-              <View>
-                <Text style={styles.earningName}>Sarah Williams</Text>
-                <Text style={styles.earningMeta}>Full Health • Oct 20, 2023</Text>
-              </View>
-            </View>
-            <View style={styles.earningRight}>
-              <Text style={styles.earningValueGreen}>+ ₦6,750.00</Text>
-              <Text style={styles.earningValueStrikethrough}>₦7,500</Text>
-            </View>
-          </View>
-
-        </View>
+        )}
 
         {/* Info Box */}
         <View style={styles.infoBox}>

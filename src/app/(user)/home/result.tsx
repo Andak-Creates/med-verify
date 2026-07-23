@@ -30,7 +30,23 @@ const STATUS_CONFIG: Record<DrugVerificationResult['verificationResult'], {
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { code, result } = useLocalSearchParams<{ code: string; result?: string }>();
+  const { code, result, from } = useLocalSearchParams<{ code: string; result?: string; from?: string }>();
+
+  const handleBack = () => {
+    if (from === 'history') {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(user)/history' as any);
+      }
+    } else {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(user)/home' as any);
+      }
+    }
+  };
 
   const drug = useMemo<DrugVerificationResult | null>(() => {
     if (!result) return null;
@@ -78,7 +94,7 @@ export default function ResultScreen() {
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={({ pressed }) => ({
               width: 40, height: 40, borderRadius: 20,
               backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
@@ -155,7 +171,7 @@ export default function ResultScreen() {
           {/* Full Details */}
           {drug?.found && (
             <Pressable
-              onPress={() => router.push({ pathname: '/(user)/home/drug-details', params: { code: nafdacNumber, result } } as any)}
+              onPress={() => router.push({ pathname: '/(user)/home/drug-details', params: { code: nafdacNumber, result, from } } as any)}
               style={({ pressed }) => ({
                 backgroundColor: '#0B1C5A', borderRadius: 16, paddingVertical: 16,
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vwindi.medverify",
+      "bundleIdentifier": "com.koetech.medverify",
       "bitcode": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

@@ -29,23 +29,23 @@ export default function NotificationsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerLogo}>MedVerify</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
-            <View style={styles.notifDot} />
+          <TouchableOpacity
+            onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/dashboard' as any)}
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={24} color="#0B1C5A" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.back()}>
-            {user?.profileImage ? (
-              <Image source={{ uri: user.profileImage }} style={styles.headerAvatar} />
-            ) : (
-              <View style={[styles.headerAvatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
-                <Ionicons name="person-outline" size={16} color="#0B1C5A" />
-              </View>
-            )}
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Notifications</Text>
         </View>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/dashboard' as any)}>
+          {user?.profileImage ? (
+            <Image source={{ uri: user.profileImage }} style={styles.headerAvatar} />
+          ) : (
+            <View style={[styles.headerAvatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="person-outline" size={16} color="#0B1C5A" />
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -111,16 +111,18 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  headerLogo: {
+  headerTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0B1C5A',
   },
-  headerRight: {
-    flexDirection: 'row',
+  backBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
   },
   headerAvatar: {
     width: 32,

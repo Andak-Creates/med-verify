@@ -37,7 +37,7 @@ export default function EarningsHistoryScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/wallet' as any)} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#0B1C5A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Earnings History</Text>

@@ -72,7 +72,11 @@ export default function FeeSettingsScreen() {
         feeDrugInquiry: parseInt(fees[0].amount, 10),
         feeFullConsultation: parseInt(fees[1].amount, 10),
       });
-      router.back();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(pharmacist)/profile' as any);
+      }
     } catch (err) {
       Alert.alert('Could not save fees', getApiErrorMessage(err, 'Please try again.'));
     } finally {
@@ -84,7 +88,7 @@ export default function FeeSettingsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/profile' as any)} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#0B1C5A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fee Settings</Text>

@@ -1,14 +1,40 @@
 import { Platform } from 'react-native';
-import notifee, {
-  AndroidForegroundServiceType,
-  AndroidImportance,
-} from '@notifee/react-native';
 
-// Android 11+ only lets an app keep using the microphone in the background while
-// a foreground service of type `microphone` is running. We start such a service
-// (backed by a persistent notification) for the duration of a call and stop it
-// when the call ends. On iOS this is a no-op — background audio is handled by
-// UIBackgroundModes in app.json.
+// @notifee/react-native is a native module that only exists in a custom dev
+// build / production build. In Expo Go and on web the native module is not
+// linked, so we load it lazily with require() inside a try-catch and fall back
+// to no-ops. The call still works; it just won't have a persistent foreground-
+// service notification keeping the mic alive while backgrounded.
+
+type Notifee = typeof import('@notifee/react-native').default;
+type AndroidForegroundServiceType =
+  typeof import('@notifee/react-native').AndroidForegroundServiceType;
+type AndroidImportance =
+  typeof import('@notifee/react-native').AndroidImportance;
+
+function getNotifee(): {
+  notifee: Notifee;
+  AndroidForegroundServiceType: AndroidForegroundServiceType;
+  AndroidImportance: AndroidImportance;
+} | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('@notifee/react-native');
+    return {
+      notifee: mod.default ?? mod,
+      AndroidForegroundServiceType: mod.AndroidForegroundServiceType,
+      AndroidImportance: mod.AndroidImportance,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Android 11+ only lets an app keep using the microphone in the background
+// while a foreground service of type `microphone` is running. We start such a
+// service (backed by a persistent notification) for the duration of a call and
+// stop it when the call ends. On iOS this is a no-op — background audio is
+// handled by UIBackgroundModes in app.json.
 
 const CHANNEL_ID = 'medverify_calls';
 let channelReady = false;
@@ -21,11 +47,16 @@ let channelReady = false;
  */
 export function registerCallForegroundService(): void {
   if (Platform.OS !== 'android') return;
-  notifee.registerForegroundService(() => new Promise(() => {}));
+  const mod = getNotifee();
+  if (!mod) return;
+  mod.notifee.registerForegroundService(() => new Promise(() => {}));
 }
 
 export async function startCallForegroundService(): Promise<void> {
   if (Platform.OS !== 'android') return;
+  const mod = getNotifee();
+  if (!mod) return;
+  const { notifee, AndroidForegroundServiceType, AndroidImportance } = mod;
   try {
     if (!channelReady) {
       await notifee.createChannel({
@@ -56,8 +87,10 @@ export async function startCallForegroundService(): Promise<void> {
 
 export async function stopCallForegroundService(): Promise<void> {
   if (Platform.OS !== 'android') return;
+  const mod = getNotifee();
+  if (!mod) return;
   try {
-    await notifee.stopForegroundService();
+    await mod.notifee.stopForegroundService();
   } catch {
     // Ignore — nothing to stop.
   }

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -278,7 +279,7 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(user)/account/notifications' as any)}>
             <View style={styles.menuIconWrap}>
               <Ionicons
                 name="notifications-outline"
@@ -296,17 +297,18 @@ export default function AccountScreen() {
         {/* Support */}
         <Text style={styles.sectionTitle}>Support</Text>
         <View style={styles.cardGroup}>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('mailto:support@medverify.app')}>
             <View style={styles.menuIconWrap}>
               <Ionicons name="help-circle-outline" size={20} color="#312E81" />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Help Center</Text>
+              <Text style={styles.menuSub}>support@medverify.app</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('https://medverify.app/privacy')}>
             <View style={styles.menuIconWrap}>
               <Ionicons name="shield-outline" size={20} color="#312E81" />
             </View>
@@ -316,7 +318,7 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('https://medverify.app/terms')}>
             <View style={styles.menuIconWrap}>
               <Ionicons
                 name="document-text-outline"
@@ -346,6 +348,21 @@ export default function AccountScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Danger Zone */}
+        <Text style={[styles.sectionTitle, { color: '#EF4444' }]}>Danger Zone</Text>
+        <View style={[styles.cardGroup, { marginBottom: 40 }]}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(user)/account/delete-account' as any)}>
+            <View style={[styles.menuIconWrap, { backgroundColor: '#FEF2F2', borderRadius: 10 }]}>
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={[styles.menuTitle, { color: '#EF4444' }]}>Delete Account</Text>
+              <Text style={styles.menuSub}>Permanently erase your account and data</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Edit Profile Modal */}

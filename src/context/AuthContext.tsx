@@ -52,6 +52,7 @@ interface AuthContextValue {
   refreshProfile: () => Promise<MedVerifyUser | null>;
   updateProfile: (updates: UserProfileUpdates) => Promise<MedVerifyUser>;
   uploadAvatar: (file: UploadableFile) => Promise<MedVerifyUser>;
+  deleteAccount: (password: string) => Promise<void>;
   // Subscription — isPro is server-sourced from the authenticated user.
   isPro: boolean;
   scanCount: number;
@@ -223,6 +224,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+  const deleteAccount: AuthContextValue['deleteAccount'] = useCallback(async (password) => {
+    await usersService.deleteAccount(password);
+    await resetSession();
+  }, [resetSession]);
+
   const cancelSubscription = useCallback(async () => {
     await paymentsService.cancelSubscription();
     await refreshProfile();
@@ -249,6 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile,
       updateProfile,
       uploadAvatar,
+      deleteAccount,
       isPro,
       scanCount,
       incrementScanCount,
@@ -273,6 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile,
       updateProfile,
       uploadAvatar,
+      deleteAccount,
       isPro,
       scanCount,
       incrementScanCount,

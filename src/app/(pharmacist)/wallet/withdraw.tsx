@@ -99,7 +99,7 @@ export default function WithdrawScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/wallet' as any)} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#0B1C5A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Withdraw Funds</Text>
@@ -178,7 +178,7 @@ export default function WithdrawScreen() {
       </ScrollView>
 
       <View style={styles.bottomBtns}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(pharmacist)/wallet' as any)}>
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity

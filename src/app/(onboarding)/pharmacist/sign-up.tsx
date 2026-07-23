@@ -25,7 +25,6 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showOtpRedirect, setShowOtpRedirect] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
     const trimmedEmail = email.trim().toLowerCase();

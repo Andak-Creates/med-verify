@@ -195,7 +195,7 @@ export default function ConsultsScreen() {
               </View>
             )}
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>MedVerify</Text>
+          <Text style={styles.headerTitle}>{(profile?.fullName ?? profile?.username ?? 'Consults').split(' ')[0]}</Text>
         </View>
         <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
           <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
