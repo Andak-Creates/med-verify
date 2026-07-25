@@ -17,7 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiErrorMessage } from '@/api/client';
 import { usePharmacistConsultations, usePharmacistDashboard } from '@/hooks/usePharmacistConsultations';
 import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
+import { useWallet } from '@/hooks/useWallet';
 import type { PendingRequest } from '@/types/api';
+import { formatKobo } from '@/utils/money';
 
 function formatRelativeTime(isoDate: string): string {
   const diffMins = Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000);
@@ -35,6 +37,7 @@ export default function DashboardScreen() {
   const dashboard = usePharmacistDashboard();
   const past = usePharmacistConsultations('past');
   const pendingActions = usePharmacistConsultations();
+  const { wallet } = useWallet();
   const [togglingAvailability, setTogglingAvailability] = useState(false);
   const [acceptedIds, setAcceptedIds] = useState<Record<string, boolean>>({});
 
@@ -61,9 +64,6 @@ export default function DashboardScreen() {
       grossEarnings: completed.reduce((sum, c) => sum + (c.feeAmount ?? 0), 0),
     };
   }, [past.items]);
-
-  // Wallet balance = lifetime gross minus the 10% platform fee.
-  const walletBalance = grossEarnings * 0.9;
 
   const handleAccept = async (request: PendingRequest) => {
     try {
@@ -177,11 +177,9 @@ export default function DashboardScreen() {
 
         {/* Wallet Balance Card */}
         <View style={styles.walletCard}>
-          <Text style={styles.walletLabel}>Current Wallet Balance</Text>
+          <Text style={styles.walletLabel}>Available Wallet Balance</Text>
           <Text style={styles.walletBalance}>
-            {past.isLoading
-              ? '—'
-              : `₦${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            {wallet ? formatKobo(wallet.balanceKobo) : '—'}
           </Text>
 
           <View style={styles.walletDivider} />
@@ -189,7 +187,9 @@ export default function DashboardScreen() {
           <View style={styles.walletFooter}>
             <View style={styles.walletDisclaimer}>
               <Ionicons name="information-circle-outline" size={14} color="#fff" style={{ opacity: 0.8 }} />
-              <Text style={styles.walletDisclaimerText}>10% Platform Fee deducted{'\n'}automatically from earnings.</Text>
+              <Text style={styles.walletDisclaimerText}>
+                {wallet ? `${formatKobo(wallet.pendingKobo)} held in escrow` : 'Released when sessions complete'}
+              </Text>
             </View>
             <TouchableOpacity onPress={() => router.push('/(pharmacist)/wallet' as any)}>
               <Text style={styles.viewBreakdownText}>View Breakdown</Text>

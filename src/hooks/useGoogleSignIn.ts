@@ -5,8 +5,14 @@ import * as Google from 'expo-auth-session/providers/google';
 // Required so the auth session resolves correctly when the browser redirects back.
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-const isConfigured = Boolean(GOOGLE_CLIENT_ID);
+// Accept the single-name form actually used by .env / eas.json
+// (EXPO_PUBLIC_GOOGLE_CLIENT_ID), falling back to the split WEB/ANDROID/IOS
+// names documented in .env.example.
+const WEB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+const IOS_CLIENT_ID     = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const isConfigured = Boolean(WEB_CLIENT_ID);
 
 // expo-auth-session throws synchronously during render if no client ID is
 // supplied, so a placeholder keeps the hook callable when Google sign-in
@@ -14,12 +20,10 @@ const isConfigured = Boolean(GOOGLE_CLIENT_ID);
 const PLACEHOLDER_CLIENT_ID = "not-configured.apps.googleusercontent.com";
 
 export function useGoogleSignIn(onIdToken: (idToken: string) => void, onError?: (message: string) => void) {
-  const clientId = GOOGLE_CLIENT_ID ?? PLACEHOLDER_CLIENT_ID;
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId,
-    webClientId: clientId,
-    androidClientId: clientId,
-    iosClientId: clientId,
+    webClientId:     WEB_CLIENT_ID ?? PLACEHOLDER_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
+    iosClientId:     IOS_CLIENT_ID,
     // Always show Google's account chooser instead of silently reusing
     // whichever Google account the browser already has an active session for.
     selectAccount: true,

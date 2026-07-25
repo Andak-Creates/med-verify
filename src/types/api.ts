@@ -170,6 +170,9 @@ export type ConsultationStatus =
 
 export type ConsultationFilter = 'upcoming' | 'past';
 
+/** Per-session payment gate (backend: consultations.payment_status). */
+export type PaymentStatus = 'unpaid' | 'paid' | 'refunded';
+
 export interface BookConsultationInput {
   pharmacistProfileId: string;
   consultationDate: string; // YYYY-MM-DD
@@ -205,6 +208,8 @@ export interface Consultation {
   reason: string;
   feeAmount: number;
   status: ConsultationStatus;
+  paymentStatus: PaymentStatus;
+  paidAt: string | null;
   createdAt: string;
   pharmacist: {
     profileId: string | null;
@@ -226,6 +231,8 @@ export interface PharmacistConsultation {
   reason: string;
   feeAmount: number;
   status: ConsultationStatus;
+  paymentStatus: PaymentStatus;
+  paidAt: string | null;
   createdAt: string;
   patient: {
     id: string | null;
@@ -358,4 +365,75 @@ export interface ScanHistoryItem {
 export interface ScanHistoryStats {
   totalScans: number;
   authenticityRate: number;
+}
+
+// ── Session payments ─────────────────────────────────────────────────────────
+
+/** POST /payments/session/initialize response. */
+export interface SessionPaymentInit {
+  authorizationUrl: string;
+  reference: string;
+  amount: number; // kobo
+}
+
+// ── Pharmacist wallet & payouts ──────────────────────────────────────────────
+
+/** GET /wallet — all amounts in kobo. */
+export interface Wallet {
+  balanceKobo: number;
+  pendingKobo: number;
+  totalEarnedKobo: number;
+  totalWithdrawnKobo: number;
+  currency: string;
+}
+
+export type WalletTxnType = 'credit' | 'debit';
+export type WalletTxnCategory = 'session_earning' | 'withdrawal' | 'withdrawal_reversal';
+export type WalletTxnStatus = 'pending' | 'available';
+
+/** GET /wallet/transactions item. */
+export interface WalletTransaction {
+  id: string;
+  type: WalletTxnType;
+  category: WalletTxnCategory;
+  status: WalletTxnStatus;
+  amountKobo: number;
+  balanceAfterKobo: number | null;
+  consultationId: string | null;
+  withdrawalId: string | null;
+  description: string | null;
+  createdAt: string;
+}
+
+export type WithdrawalStatus =
+  | 'pending'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'reversed';
+
+/** GET /wallet/withdrawals item / POST /wallet/withdrawals response. */
+export interface Withdrawal {
+  id: string;
+  amountKobo: number;
+  status: WithdrawalStatus;
+  bankName: string | null;
+  accountNumber: string;
+  accountName: string;
+  reference: string;
+  failureReason: string | null;
+  createdAt: string;
+}
+
+export interface Bank {
+  name: string;
+  code: string;
+}
+
+/** GET /wallet/bank — the saved payout account, or null if none set. */
+export interface BankAccount {
+  bankCode: string;
+  bankName: string | null;
+  accountNumber: string;
+  accountName: string;
 }

@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import { useConsultations } from "@/hooks/useConsultations";
 import { useScanHistory } from "@/hooks/useDrugVerification";
+import { useSessionPayment } from "@/hooks/useSessionPayment";
 import type { Consultation, ConsultationStatus, ScanHistoryItem } from "@/types/api";
 
 const STATUS_DISPLAY: Record<ScanHistoryItem["status"], { label: string; bg: string; color: string; icon: string; iconBg: string }> = {
@@ -79,6 +80,7 @@ export default function HistoryScreen() {
 
   const upcoming = useConsultations("upcoming");
   const past = useConsultations("past");
+  const { pay, payingId } = useSessionPayment();
 
   const filteredItems = items.filter((item) => {
     if (medFilter === "all") return true;
@@ -123,7 +125,11 @@ export default function HistoryScreen() {
   const renderConsultationCard = (c: Consultation) => {
     const statusDisplay = CONSULT_STATUS_DISPLAY[c.status];
     const sessionType = SESSION_TYPE_LABEL[c.consultationType];
-    const canJoin = c.status === "CONFIRMED" || c.status === "IN_PROGRESS";
+    // Accepted but not yet paid → must pay to unlock the session.
+    const needsPayment = c.status === "CONFIRMED" && c.paymentStatus !== "paid";
+    const canJoin =
+      (c.status === "CONFIRMED" && c.paymentStatus === "paid") || c.status === "IN_PROGRESS";
+    const isPaying = payingId === c.id;
     return (
       <View key={c.id} style={styles.consultCard}>
         <View style={styles.consultHeader}>
@@ -156,6 +162,27 @@ export default function HistoryScreen() {
             <Text style={styles.calTime}>Starts at {c.timeSlot} • Ref {c.referenceCode}</Text>
           </View>
         </View>
+
+        {needsPayment && (
+          <View style={styles.btnRow}>
+            <TouchableOpacity
+              style={[styles.payBtn, isPaying && { opacity: 0.7 }]}
+              disabled={isPaying}
+              onPress={() => pay(c.id, upcoming.refresh)}
+            >
+              {isPaying ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={18} color="#fff" />
+                  <Text style={styles.primaryBtnText}>
+                    Pay ₦{c.feeAmount.toLocaleString()} to Join
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {canJoin && (
           <View style={styles.btnRow}>
@@ -704,6 +731,16 @@ const styles = StyleSheet.create({
   primaryBtn: {
     flex: 1,
     backgroundColor: "#0B1C5A",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 48,
+    borderRadius: 12,
+    gap: 8,
+  },
+  payBtn: {
+    flex: 1,
+    backgroundColor: "#065F46",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
