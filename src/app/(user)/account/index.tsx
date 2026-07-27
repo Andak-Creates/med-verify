@@ -251,6 +251,35 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Billing */}
+        <Text style={styles.sectionTitle}>Billing</Text>
+        <View style={styles.cardGroup}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push(isPro ? '/(user)/account/subscription' : '/(user)/account/paywall' as any)}
+          >
+            <View style={styles.menuIconWrap}>
+              <Ionicons name="diamond-outline" size={20} color="#312E81" />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Subscription</Text>
+              <Text style={styles.menuSub}>{isPro ? "Pro plan" : "Basic plan"}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(user)/account/payment-methods' as any)}>
+            <View style={styles.menuIconWrap}>
+              <Ionicons name="card-outline" size={20} color="#312E81" />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Payment Methods</Text>
+              <Text style={styles.menuSub}>View, add or remove cards</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+
         {/* Security & Preferences */}
         <Text style={styles.sectionTitle}>Security & Preferences</Text>
         <View style={styles.cardGroup}>
