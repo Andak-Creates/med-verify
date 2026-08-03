@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Animated, Easing } from 'react-native';
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Text, View } from "react-native";
 
 const LOADING_TEXTS = [
   "Initializing secure connection...",
   "Authenticating...",
   "Loading scanner...",
-  "Preparing dashboard..."
+  "Preparing dashboard...",
 ];
 
 export function SplashLoading({ message }: { message?: string }) {
@@ -15,7 +15,7 @@ export function SplashLoading({ message }: { message?: string }) {
   useEffect(() => {
     // Cycle text every 800ms if no hardcoded message is provided
     if (message) return;
-    
+
     const interval = setInterval(() => {
       setTextIndex((prev) => (prev + 1) % LOADING_TEXTS.length);
     }, 800);
@@ -36,22 +36,20 @@ export function SplashLoading({ message }: { message?: string }) {
           toValue: 0,
           duration: 0,
           useNativeDriver: false,
-        })
-      ])
+        }),
+      ]),
     ).start();
   }, [progressAnim]);
 
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0%', '100%']
+    outputRange: ["0%", "100%"],
   });
 
   return (
     <View className="flex-1 items-center justify-center px-6">
-      
       {/* Central Glassmorphism Card */}
       <View className="w-full max-w-sm bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 items-center shadow-2xl border border-white/50">
-        
         {/* Logo Icon */}
         <View className="bg-[#0b1c5a] w-16 h-12 rounded-2xl items-center justify-center mb-6">
           <View className="bg-white w-6 h-6 rounded-full items-center justify-center">
@@ -63,12 +61,11 @@ export function SplashLoading({ message }: { message?: string }) {
         <Text className="text-4xl font-extrabold text-[#0b1c5a] mb-2 tracking-tight">
           MedVerify
         </Text>
-        
+
         {/* Tagline */}
         <Text className="text-[10px] font-bold text-teal-700 tracking-[0.2em] mb-4">
           PRECISION YOU CAN TRUST
         </Text>
-        
       </View>
 
       {/* Bottom Section */}
@@ -77,16 +74,16 @@ export function SplashLoading({ message }: { message?: string }) {
         <Text className="text-gray-500 font-bold text-[10px] tracking-widest mb-4 uppercase">
           {message || LOADING_TEXTS[textIndex]}
         </Text>
-        
+
         {/* Animated Progress Bar */}
         <View className="w-64 h-1 bg-gray-300 rounded-full mb-8 overflow-hidden">
-          <Animated.View 
-            style={{ 
-              height: '100%', 
-              backgroundColor: '#0b1c5a', 
+          <Animated.View
+            style={{
+              height: "100%",
+              backgroundColor: "#0b1c5a",
               width: progressWidth,
-              borderRadius: 9999
-            }} 
+              borderRadius: 9999,
+            }}
           />
         </View>
 
@@ -98,7 +95,6 @@ export function SplashLoading({ message }: { message?: string }) {
           </Text>
         </View>
       </View>
-
     </View>
   );
 }
