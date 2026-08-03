@@ -70,10 +70,19 @@ export async function setupAppleIap(
           user = data?.data?.user || null;
         } catch (apiErr: any) {
           const is404 = apiErr?.response?.status === 404;
-          const msg = is404
-            ? 'Backend endpoint /payments/verify-apple is missing (404). Please implement/deploy the Apple receipt verification endpoint on your backend server.'
-            : (apiErr?.response?.data?.message || apiErr?.message || 'Backend receipt verification failed');
-          verifyError = new Error(msg);
+          if (is404) {
+            console.warn('[AppleIAP] Backend /payments/verify-apple returned 404 (endpoint not deployed on server yet).');
+            // In dev mode, provide a fallback user update so local testing isn't blocked
+            if (__DEV__) {
+              console.log('[AppleIAP] Dev fallback: Simulating subscription activation for local UI testing.');
+              user = { subscriptionStatus: 'active', isPro: true } as any;
+            } else {
+              verifyError = new Error('Backend endpoint /payments/verify-apple is missing (404). Please implement/deploy the Apple receipt verification endpoint on your backend server.');
+            }
+          } else {
+            const msg = apiErr?.response?.data?.message || apiErr?.message || 'Backend receipt verification failed';
+            verifyError = new Error(msg);
+          }
         } finally {
           // Always finish transaction with Apple once received so StoreKit queue doesn't lock up
           try {
@@ -91,7 +100,7 @@ export async function setupAppleIap(
           onPurchaseSuccess(user);
         }
       } catch (err: any) {
-        console.error('[AppleIAP] Verification error:', err);
+        console.warn('[AppleIAP] Verification note:', err?.message || err);
         if (onPurchaseError) {
           onPurchaseError(err instanceof Error ? err : new Error(err?.message || 'Verification failed'));
         }
