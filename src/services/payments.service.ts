@@ -61,3 +61,13 @@ export async function initializeSessionPayment(
 export async function verifySessionPayment(reference: string): Promise<void> {
   await api.get(`/payments/session/verify/${encodeURIComponent(reference)}`);
 }
+
+export async function verifyAppleReceipt(receiptData: {
+  transactionReceipt: string;
+  productId: string;
+  transactionId?: string;
+  isRestore?: boolean;
+}): Promise<MedVerifyUser> {
+  const { data } = await api.post('/payments/verify-apple', receiptData);
+  return data.data.user;
+}
