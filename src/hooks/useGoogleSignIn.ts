@@ -20,10 +20,12 @@ const isConfigured = Boolean(WEB_CLIENT_ID);
 const PLACEHOLDER_CLIENT_ID = "not-configured.apps.googleusercontent.com";
 
 export function useGoogleSignIn(onIdToken: (idToken: string) => void, onError?: (message: string) => void) {
+  const fallbackClientId = WEB_CLIENT_ID ?? PLACEHOLDER_CLIENT_ID;
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId:     WEB_CLIENT_ID ?? PLACEHOLDER_CLIENT_ID,
-    androidClientId: ANDROID_CLIENT_ID,
-    iosClientId:     IOS_CLIENT_ID,
+    webClientId:     fallbackClientId,
+    androidClientId: ANDROID_CLIENT_ID ?? fallbackClientId,
+    iosClientId:     IOS_CLIENT_ID ?? fallbackClientId,
     // Always show Google's account chooser instead of silently reusing
     // whichever Google account the browser already has an active session for.
     selectAccount: true,
