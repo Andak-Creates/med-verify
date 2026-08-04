@@ -1,8 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import {
-  setupAppleIap,
-  teardownAppleIap,
   fetchAppleSubscriptions,
   buyAppleSubscription,
   restoreApplePurchases,
@@ -15,33 +13,21 @@ export function useSubscription(onUserUpdated?: (user: MedVerifyUser) => void) {
   const [appleSubscriptions, setAppleSubscriptions] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch Apple product details for display (iOS only). StoreKit is connected
+  // globally at app root (see AppleIapBootstrap in app/_layout.tsx), so there is
+  // NO per-screen initConnection/endConnection here — that was the source of the
+  // "Connection not initialized" thrash. Purchase success is handled globally and
+  // flows to Pro via AuthContext.refreshProfile().
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      let isMounted = true;
-
-      setupAppleIap(
-        (updatedUser) => {
-          setLoading(false);
-          if (onUserUpdated) onUserUpdated(updatedUser);
-        },
-        (err) => {
-          setLoading(false);
-          setError(err.message);
-        }
-      ).then((initialized) => {
-        if (initialized && isMounted) {
-          fetchAppleSubscriptions().then((subs) => {
-            if (isMounted) setAppleSubscriptions(subs);
-          });
-        }
-      });
-
-      return () => {
-        isMounted = false;
-        teardownAppleIap();
-      };
-    }
-  }, [onUserUpdated]);
+    if (Platform.OS !== 'ios') return;
+    let isMounted = true;
+    fetchAppleSubscriptions().then((subs) => {
+      if (isMounted) setAppleSubscriptions(subs);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   /**
    * Triggers subscription start based on platform:
