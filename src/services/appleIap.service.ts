@@ -144,7 +144,6 @@ export async function setupAppleIap(
         errorCb(err instanceof Error ? err : new Error(err?.message || 'Verification failed'));
       }
     }
-    }
   });
 
   purchaseErrorSub = iap.purchaseErrorListener((error: any) => {
