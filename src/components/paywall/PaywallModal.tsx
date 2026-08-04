@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/context/AuthContext';
 import type { MedVerifyUser } from '@/types/api';
 
 interface PaywallModalProps {
@@ -23,6 +24,20 @@ interface PaywallModalProps {
 export function PaywallModal({ visible, onClose, onSuccess }: PaywallModalProps) {
   const { loading, error, appleSubscriptions, startSubscription, restoreOrSync, isIos } =
     useSubscription(onSuccess);
+  const { user, isPro } = useAuth();
+
+  // Apple purchases are verified + activated app-wide (AppleIapBootstrap →
+  // refreshProfile). Close the modal (and notify) once Pro turns on.
+  const handledRef = useRef(false);
+  useEffect(() => {
+    if (visible && isPro && !handledRef.current) {
+      handledRef.current = true;
+      if (onSuccess && user) onSuccess(user);
+      onClose();
+    }
+    if (!visible) handledRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, isPro]);
 
   const handleSubscribe = async (sku?: string) => {
     try {

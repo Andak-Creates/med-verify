@@ -1,5 +1,5 @@
 import { api } from '@/api/client';
-import type { MedVerifyUser, SessionPaymentInit } from '@/types/api';
+import type { MedVerifyUser, SavedCard, SessionPaymentInit } from '@/types/api';
 
 export async function initializeSubscription(): Promise<{ authorizationUrl: string; reference: string }> {
   const { data } = await api.post('/payments/initialize');
@@ -24,6 +24,24 @@ export async function syncSubscription(): Promise<MedVerifyUser> {
 export async function cancelSubscription(): Promise<MedVerifyUser> {
   const { data } = await api.post('/payments/cancel');
   return data.data.user;
+}
+
+// ── Saved cards ───────────────────────────────────────────────────────────────
+
+export async function listCards(): Promise<SavedCard[]> {
+  const { data } = await api.get('/payments/cards');
+  return data.data.cards;
+}
+
+/** Paystack hosted page where the user securely adds/switches their subscription card. */
+export async function getCardManageLink(): Promise<string> {
+  const { data } = await api.get('/payments/manage-link');
+  return data.data.link;
+}
+
+export async function removeCard(authorizationCode: string): Promise<SavedCard[]> {
+  const { data } = await api.post('/payments/cards/remove', { authorizationCode });
+  return data.data.cards;
 }
 
 // ── Per-session pay-to-join ───────────────────────────────────────────────────

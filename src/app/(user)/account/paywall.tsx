@@ -4,7 +4,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,9 +18,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, isPro } = useAuth();
 
+  // Idempotent — a purchase (handled globally) flips isPro via the effect below,
+  // while a manual restore calls this directly; either way it runs once.
+  const activatedRef = useRef(false);
   const onProActivated = async () => {
+    if (activatedRef.current) return;
+    activatedRef.current = true;
     await refreshProfile();
     Alert.alert(
       "Welcome to Pro! 🎉",
@@ -28,6 +33,14 @@ export default function PaywallScreen() {
     );
     router.back();
   };
+
+  // Apple purchases are verified + activated app-wide (AppleIapBootstrap →
+  // refreshProfile), so the paywall reacts to Pro turning on rather than to a
+  // per-hook callback.
+  useEffect(() => {
+    if (isPro) onProActivated();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPro]);
 
   const {
     loading: subLoading,

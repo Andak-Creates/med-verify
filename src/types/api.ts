@@ -43,6 +43,17 @@ export interface AuthSession {
   user: MedVerifyUser;
 }
 
+export interface SavedCard {
+  authorizationCode: string;
+  last4: string;
+  cardType: string | null;
+  expMonth: string | null;
+  expYear: string | null;
+  bank: string | null;
+  reusable: boolean;
+  isSubscriptionCard: boolean;
+}
+
 export interface UserProfileUpdates {
   fullName?: string;
   username?: string;
@@ -436,4 +447,30 @@ export interface BankAccount {
   bankName: string | null;
   accountNumber: string;
   accountName: string;
+}
+
+/** GET /pharmacies/nearby — one result item */
+export interface NearbyPharmacy {
+  placeId: string;
+  name: string;
+  address: string;
+  rating: number | null;
+  userRatingsTotal: number;
+  isOpenNow: boolean | null;
+  photoUrl: string;
+}
+
+/** GET /pharmacies/:placeId — full detail */
+export interface PharmacyDetail {
+  placeId: string;
+  name: string;
+  address: string;
+  phone: string | null;
+  website: string | null;
+  rating: number | null;
+  userRatingsTotal: number;
+  isOpen: boolean | null;
+  openingHours: string[];
+  photos: string[];
+  location: { lat: number; lng: number } | null;
 }

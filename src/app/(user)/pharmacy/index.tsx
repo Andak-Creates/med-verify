@@ -19,14 +19,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocation } from '@/hooks/useLocation';
 import { usePharmacists } from '@/hooks/usePharmacists';
-import type { PublicPharmacist } from '@/types/api';
+import { useNearbyPharmacies } from '@/hooks/useNearbyPharmacies';
+import type { NearbyPharmacy, PublicPharmacist } from '@/types/api';
 
 const SEARCH_DEBOUNCE_MS = 400;
 
 export default function PharmacyScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'pharmacies' | 'pharmacists'>('pharmacists');
+  const [activeTab, setActiveTab] = useState<'pharmacies' | 'pharmacists'>('pharmacies');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [availableOnly, setAvailableOnly] = useState(false);
@@ -37,13 +38,20 @@ export default function PharmacyScreen() {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
+  // Auto-request location when landing on Pharmacies tab
+  useEffect(() => {
+    if (activeTab === 'pharmacies' && !coords && !isLocating) {
+      requestLocation();
+    }
+  }, [activeTab]);
+
   const {
     items: pharmacists,
-    isLoading,
-    isRefreshing,
+    isLoading: pharmacistsLoading,
+    isRefreshing: pharmacistsRefreshing,
     isLoadingMore,
-    error,
-    refresh,
+    error: pharmacistsError,
+    refresh: refreshPharmacists,
     loadMore,
   } = usePharmacists({
     search,
@@ -51,6 +59,13 @@ export default function PharmacyScreen() {
     lat: coords?.lat,
     lng: coords?.lng,
   });
+
+  const {
+    items: nearbyPharmacies,
+    isLoading: pharmaciesLoading,
+    error: pharmaciesError,
+    refresh: refreshPharmacies,
+  } = useNearbyPharmacies(coords, search);
 
   const handleNearMe = async () => {
     if (coords) {
@@ -67,9 +82,10 @@ export default function PharmacyScreen() {
     }
   };
 
-  // The backend models pharmacies through their pharmacists — the Pharmacies
-  // tab surfaces the same approved pharmacists, framed by their pharmacy.
-  const pharmacies = pharmacists.filter((p) => p.pharmacyName);
+  const isLoading = activeTab === 'pharmacies' ? pharmaciesLoading : pharmacistsLoading;
+  const isRefreshing = activeTab === 'pharmacists' ? pharmacistsRefreshing : false;
+  const error = activeTab === 'pharmacies' ? pharmaciesError : pharmacistsError;
+  const refresh = activeTab === 'pharmacies' ? refreshPharmacies : refreshPharmacists;
 
   const formatDistance = (distanceKm: number | null) =>
     distanceKm != null ? `${distanceKm} km away` : null;
@@ -165,55 +181,102 @@ export default function PharmacyScreen() {
     );
   };
 
-  const renderPharmacyCard = (p: PublicPharmacist) => (
-    <View key={p.id} style={styles.pharmacyCard}>
-      <View style={styles.pharmHeaderRow}>
-        <View style={{ flex: 1, paddingRight: 10 }}>
-          <View style={styles.pharmNameRow}>
-            <Text style={styles.pharmName}>{p.pharmacyName}</Text>
-            <Ionicons name="checkmark-circle" size={16} color="#312E81" style={{ marginLeft: 4 }} />
-          </View>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color="#6B7280" />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {[formatDistance(p.distanceKm), p.pharmacyAddress].filter(Boolean).join(' • ') ||
-                'Address not provided'}
-            </Text>
-          </View>
+  const renderNearbyPharmacyCard = (p: NearbyPharmacy) => (
+    <TouchableOpacity
+      key={p.placeId}
+      style={styles.pharmacyCard}
+      activeOpacity={0.85}
+      onPress={() => router.push(`/(user)/pharmacy/place/${encodeURIComponent(p.placeId)}` as any)}
+    >
+      {/* Photo */}
+      {p.photoUrl ? (
+        <Image source={{ uri: p.photoUrl }} style={styles.pharmacyPhoto} resizeMode="cover" />
+      ) : (
+        <View style={styles.pharmacyPhotoFallback}>
+          <Ionicons name="storefront-outline" size={36} color="#312E81" />
         </View>
-        <View style={styles.ratingBadge}>
-          <Ionicons name="star" size={12} color="#312E81" />
-          <Text style={styles.ratingText}>{p.avgRating > 0 ? p.avgRating.toFixed(1) : 'New'}</Text>
-        </View>
-      </View>
+      )}
 
-      <View style={styles.pharmFooterRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.statusTextBlue}>
-            {p.vacationMode ? 'CURRENTLY UNAVAILABLE' : p.isOnline ? 'PHARMACIST ONLINE' : 'PHARMACIST OFFLINE'}
-          </Text>
-          <View style={styles.badgeRow}>
-            <View style={[styles.smallBadge, { backgroundColor: '#DBEAFE' }]}>
-              <Text style={[styles.smallBadgeText, { color: '#1E40AF' }]}>
-                {(p.fullName ?? 'PHARMACIST').toUpperCase()}
-              </Text>
+      {/* Open/Closed badge over photo */}
+      {p.isOpenNow !== null && (
+        <View style={[styles.openBadge, { backgroundColor: p.isOpenNow ? '#10B981' : '#EF4444' }]}>
+          <Text style={styles.openBadgeText}>{p.isOpenNow ? 'OPEN' : 'CLOSED'}</Text>
+        </View>
+      )}
+
+      <View style={styles.pharmacyBody}>
+        <View style={styles.pharmHeaderRow}>
+          <Text style={styles.pharmName} numberOfLines={1}>{p.name}</Text>
+          {p.rating !== null && (
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={12} color="#312E81" />
+              <Text style={styles.ratingText}>{p.rating.toFixed(1)}</Text>
             </View>
-            <View style={[styles.smallBadge, { backgroundColor: '#D1FAE5' }]}>
-              <Text style={[styles.smallBadgeText, { color: '#065F46' }]}>
-                FROM ₦{p.feeDrugInquiry.toLocaleString()}
-              </Text>
-            </View>
+          )}
+        </View>
+
+        <View style={styles.locationRow}>
+          <Ionicons name="location-outline" size={13} color="#6B7280" />
+          <Text style={styles.locationText} numberOfLines={2}>{p.address || 'Address unavailable'}</Text>
+        </View>
+
+        {p.userRatingsTotal > 0 && (
+          <Text style={styles.reviewCountText}>{p.userRatingsTotal.toLocaleString()} reviews</Text>
+        )}
+
+        <View style={styles.pharmacyFooter}>
+          <View style={[styles.smallBadge, { backgroundColor: '#EEF1FB' }]}>
+            <Text style={[styles.smallBadgeText, { color: '#312E81' }]}>PHARMACY</Text>
+          </View>
+          <View style={styles.viewBtn}>
+            <Text style={styles.viewBtnText}>View Details</Text>
+            <Ionicons name="chevron-forward" size={14} color="#fff" />
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.viewBtn}
-          onPress={() => router.push(`/(user)/pharmacy/${p.id}` as any)}
-        >
-          <Text style={styles.viewBtnText}>View</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
+
+  const renderPharmaciesContent = () => {
+    if (!coords && !isLocating) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="location-outline" size={40} color="#312E81" />
+          <Text style={[styles.emptyStateText, { color: '#111827', fontWeight: '700', fontSize: 15, marginTop: 14 }]}>
+            Enable location to find pharmacies near you
+          </Text>
+          <Text style={[styles.emptyStateText, { marginTop: 6 }]}>
+            Tap the button below to share your location and see pharmacies in your area.
+          </Text>
+          <TouchableOpacity style={styles.enableLocationBtn} onPress={requestLocation} disabled={isLocating}>
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.enableLocationBtnText}>Enable Location</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (isLocating) {
+      return (
+        <View style={{ paddingVertical: 60, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#312E81" />
+          <Text style={{ marginTop: 12, color: '#6B7280' }}>Getting your location…</Text>
+        </View>
+      );
+    }
+    const listState = renderListState();
+    if (listState) return listState;
+    if (nearbyPharmacies.length === 0) {
+      return renderEmptyState(
+        search
+          ? 'No pharmacies match your search. Try a different keyword.'
+          : 'No pharmacies found nearby. Try expanding your search radius.',
+      );
+    }
+    return <View style={styles.cardList}>{nearbyPharmacies.map(renderNearbyPharmacyCard)}</View>;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -257,7 +320,9 @@ export default function PharmacyScreen() {
               {isLoading
                 ? 'Searching…'
                 : activeTab === 'pharmacies'
-                  ? `${pharmacies.length} ${pharmacies.length === 1 ? 'pharmacy' : 'pharmacies'} found`
+                  ? coords
+                    ? `${nearbyPharmacies.length} ${nearbyPharmacies.length === 1 ? 'pharmacy' : 'pharmacies'} found`
+                    : 'Share location to find nearby pharmacies'
                   : `${pharmacists.length} ${pharmacists.length === 1 ? 'expert' : 'experts'} found`}
             </Text>
           </View>
@@ -299,7 +364,11 @@ export default function PharmacyScreen() {
             <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by specialty, pharmacy or bio…"
+              placeholder={
+                activeTab === 'pharmacies'
+                  ? 'Search by pharmacy name…'
+                  : 'Search by specialty, pharmacy or bio…'
+              }
               placeholderTextColor="#9CA3AF"
               value={searchInput}
               onChangeText={setSearchInput}
@@ -314,31 +383,35 @@ export default function PharmacyScreen() {
           </View>
         </View>
 
-        {/* ── Filter Pills ─────────────────────────────────── */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
-          <TouchableOpacity
-            style={[styles.filterPill, availableOnly && styles.filterPillActive]}
-            onPress={() => setAvailableOnly((v) => !v)}
-          >
-            <Text style={[styles.filterPillText, availableOnly && styles.filterPillTextActive]}>
-              Available Now
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterPill, coords != null && styles.filterPillActive]}
-            onPress={handleNearMe}
-          >
-            <Text style={[styles.filterPillText, coords != null && styles.filterPillTextActive]}>
-              Near Me
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+        {/* ── Filter Pills (pharmacists only) ──────────────────── */}
+        {activeTab === 'pharmacists' && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.filterPill, availableOnly && styles.filterPillActive]}
+              onPress={() => setAvailableOnly((v) => !v)}
+            >
+              <Text style={[styles.filterPillText, availableOnly && styles.filterPillTextActive]}>
+                Available Now
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterPill, coords != null && styles.filterPillActive]}
+              onPress={handleNearMe}
+            >
+              <Text style={[styles.filterPillText, coords != null && styles.filterPillTextActive]}>
+                Near Me
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
 
         {/* ── List ─────────────────────────────────── */}
         <View style={styles.tabContent}>
-          {renderListState() ?? (
+          {activeTab === 'pharmacies' ? (
+            <View style={styles.cardList}>{renderPharmaciesContent()}</View>
+          ) : (
             <View style={styles.cardList}>
-              {activeTab === 'pharmacists' ? (
+              {renderListState() ?? (
                 pharmacists.length === 0 ? (
                   renderEmptyState(
                     search
@@ -346,21 +419,15 @@ export default function PharmacyScreen() {
                       : 'No approved pharmacists are available yet. Please check back soon.',
                   )
                 ) : (
-                  pharmacists.map(renderPharmacistCard)
+                  <>
+                    {pharmacists.map(renderPharmacistCard)}
+                    {isLoadingMore && (
+                      <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                        <ActivityIndicator size="small" color="#312E81" />
+                      </View>
+                    )}
+                  </>
                 )
-              ) : pharmacies.length === 0 ? (
-                renderEmptyState(
-                  search
-                    ? 'No pharmacies match your search.'
-                    : 'No registered pharmacies are available yet. Please check back soon.',
-                )
-              ) : (
-                pharmacies.map(renderPharmacyCard)
-              )}
-              {isLoadingMore && (
-                <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color="#312E81" />
-                </View>
               )}
             </View>
           )}
@@ -417,23 +484,28 @@ const styles = StyleSheet.create({
   /* Empty / error states */
   emptyState: { paddingVertical: 40, alignItems: 'center', paddingHorizontal: 30 },
   emptyStateText: { marginTop: 12, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  enableLocationBtn: { marginTop: 20, backgroundColor: '#312E81', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24 },
+  enableLocationBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  /* Pharmacy Cards */
-  pharmacyCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-  pharmHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  pharmNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  pharmName: { fontSize: 18, fontWeight: '800', color: '#111827' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  locationText: { fontSize: 12, color: '#6B7280', flexShrink: 1 },
+  /* Nearby Pharmacy Cards */
+  pharmacyCard: { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  pharmacyPhoto: { width: '100%', height: 160 },
+  pharmacyPhotoFallback: { width: '100%', height: 160, backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center' },
+  openBadge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  openBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  pharmacyBody: { padding: 16 },
+  pharmHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  pharmName: { fontSize: 17, fontWeight: '800', color: '#111827', flex: 1, paddingRight: 8 },
+  locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 8 },
+  locationText: { fontSize: 12, color: '#6B7280', flex: 1, lineHeight: 18 },
+  reviewCountText: { fontSize: 11, color: '#9CA3AF', marginBottom: 12 },
   ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EEF1FB', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   ratingText: { fontSize: 12, fontWeight: '700', color: '#312E81' },
-  pharmFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  statusTextBlue: { fontSize: 11, fontWeight: '800', color: '#312E81', letterSpacing: 0.5, marginBottom: 6 },
-  badgeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  pharmacyFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   smallBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   smallBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  viewBtn: { backgroundColor: '#312E81', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 24 },
-  viewBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#312E81', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20 },
+  viewBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   /* Pharmacist Cards */
   docCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },

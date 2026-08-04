@@ -27,17 +27,58 @@ function getRNIap() {
   return RNIapModule;
 }
 
-// Product SKUs defined in App Store Connect
+// Product SKUs defined in App Store Connect. Only the monthly product exists
+// today; add the annual SKU back here once it's created in App Store Connect.
 export const APPLE_SUBSCRIPTION_SKUS = [
   'com.medverify.subscription.monthly',
-  'com.medverify.subscription.annual',
 ];
 
+// ---------------------------------------------------------------------------
+// Connection lifecycle — StoreKit is connected ONCE for the app's lifetime.
+// Per-screen init/teardown races with StoreKit's async transaction delivery and
+// throws "Connection not initialized. Call initConnection() first." from
+// finishTransaction, so we guard every native call behind ensureConnected().
+// ---------------------------------------------------------------------------
+
+let connected = false;
+let connectingPromise: Promise<boolean> | null = null;
+let listenersRegistered = false;
 let purchaseUpdateSub: any = null;
 let purchaseErrorSub: any = null;
 
+// Callbacks are held at module scope so the (once-registered) listeners always
+// call the latest handlers without needing to re-subscribe.
+let successCb: ((user: MedVerifyUser) => void) | undefined;
+let errorCb: ((error: Error) => void) | undefined;
+
+/** Initialize the StoreKit connection if needed. De-dupes concurrent callers. */
+async function ensureConnected(): Promise<boolean> {
+  const iap = getRNIap();
+  if (!iap) return false;
+  if (connected) return true;
+  if (connectingPromise) return connectingPromise;
+
+  connectingPromise = (async () => {
+    try {
+      await iap.initConnection();
+      connected = true;
+      return true;
+    } catch (e) {
+      console.error('[AppleIAP] initConnection failed:', e);
+      connected = false;
+      return false;
+    } finally {
+      connectingPromise = null;
+    }
+  })();
+  return connectingPromise;
+}
+
 /**
- * Initializes the Apple StoreKit connection and sets up listeners for incoming purchases.
+ * Connects StoreKit (once) and registers purchase listeners (once). Safe to call
+ * repeatedly — subsequent calls only swap the success/error callbacks. Call this
+ * a single time at app startup so queued/pending transactions on launch are drained
+ * against a live connection.
  */
 export async function setupAppleIap(
   onPurchaseSuccess?: (user: MedVerifyUser) => void,
@@ -46,84 +87,80 @@ export async function setupAppleIap(
   const iap = getRNIap();
   if (!iap) return false;
 
-  try {
-    const result = await iap.initConnection();
+  successCb = onPurchaseSuccess;
+  errorCb = onPurchaseError;
 
-    // Setup Purchase Update Listener
-    purchaseUpdateSub = iap.purchaseUpdatedListener(async (purchase: any) => {
+  const ok = await ensureConnected();
+  if (!ok) return false;
+
+  if (listenersRegistered) return true;
+
+  purchaseUpdateSub = iap.purchaseUpdatedListener(async (purchase: any) => {
+    try {
+      const token = purchase.transactionReceipt || purchase.purchaseToken;
+      if (!token) {
+        throw new Error('No receipt/token returned from Apple StoreKit');
+      }
+
+      let user: MedVerifyUser | null = null;
+      let verifyError: Error | null = null;
+
       try {
-        const token = purchase.transactionReceipt || purchase.purchaseToken;
-        if (!token) {
-          throw new Error('No receipt/token returned from Apple StoreKit');
-        }
-
-        let user: MedVerifyUser | null = null;
-        let verifyError: Error | null = null;
-
+        // Verify receipt with MedVerify backend
+        const { data } = await api.post('/payments/verify-apple', {
+          transactionReceipt: token,
+          productId: purchase.productId,
+          transactionId: purchase.transactionId,
+        });
+        user = data?.data?.user || null;
+      } catch (apiErr: any) {
+        const is404 = apiErr?.response?.status === 404;
+        const msg = is404
+          ? 'Backend endpoint /payments/verify-apple is missing (404). Please implement/deploy the Apple receipt verification endpoint on your backend server.'
+          : (apiErr?.response?.data?.message || apiErr?.message || 'Backend receipt verification failed');
+        verifyError = new Error(msg);
+      } finally {
+        // Always finish the transaction so StoreKit's queue doesn't lock up.
+        // Ensure the connection is live first (a queued transaction on launch can
+        // arrive before/independently of an explicit setup call).
         try {
-          // Verify receipt with MedVerify backend
-          const { data } = await api.post('/payments/verify-apple', {
-            transactionReceipt: token,
-            productId: purchase.productId,
-            transactionId: purchase.transactionId,
-          });
-          user = data?.data?.user || null;
-        } catch (apiErr: any) {
-          const is404 = apiErr?.response?.status === 404;
-          if (is404) {
-            console.warn('[AppleIAP] Backend /payments/verify-apple returned 404 (endpoint not deployed on server yet).');
-            // In dev mode, provide a fallback user update so local testing isn't blocked
-            if (__DEV__) {
-              console.log('[AppleIAP] Dev fallback: Simulating subscription activation for local UI testing.');
-              user = { subscriptionStatus: 'active', isPro: true } as any;
-            } else {
-              verifyError = new Error('Backend endpoint /payments/verify-apple is missing (404). Please implement/deploy the Apple receipt verification endpoint on your backend server.');
-            }
-          } else {
-            const msg = apiErr?.response?.data?.message || apiErr?.message || 'Backend receipt verification failed';
-            verifyError = new Error(msg);
-          }
-        } finally {
-          // Always finish transaction with Apple once received so StoreKit queue doesn't lock up
-          try {
-            await iap.finishTransaction({ purchase, isConsumable: false });
-          } catch (finishErr) {
-            console.warn('[AppleIAP] finishTransaction failed:', finishErr);
-          }
-        }
-
-        if (verifyError) {
-          throw verifyError;
-        }
-
-        if (onPurchaseSuccess && user) {
-          onPurchaseSuccess(user);
-        }
-      } catch (err: any) {
-        console.warn('[AppleIAP] Verification note:', err?.message || err);
-        if (onPurchaseError) {
-          onPurchaseError(err instanceof Error ? err : new Error(err?.message || 'Verification failed'));
+          await ensureConnected();
+          await iap.finishTransaction({ purchase, isConsumable: false });
+        } catch (finishErr) {
+          console.warn('[AppleIAP] finishTransaction failed:', finishErr);
         }
       }
-    });
 
-    // Setup Purchase Error Listener
-    purchaseErrorSub = iap.purchaseErrorListener((error: any) => {
-      console.warn('[AppleIAP] Purchase error listener:', error);
-      if (onPurchaseError) {
-        onPurchaseError(new Error(error.message || 'Purchase cancelled or failed'));
+      if (verifyError) {
+        throw verifyError;
       }
-    });
 
-    return !!result;
-  } catch (error) {
-    console.error('[AppleIAP] Init failed:', error);
-    return false;
-  }
+      if (successCb && user) {
+        successCb(user);
+      }
+    } catch (err: any) {
+      console.warn('[AppleIAP] Verification result:', err?.message || err);
+      if (errorCb) {
+        errorCb(err instanceof Error ? err : new Error(err?.message || 'Verification failed'));
+      }
+    }
+    }
+  });
+
+  purchaseErrorSub = iap.purchaseErrorListener((error: any) => {
+    console.warn('[AppleIAP] Purchase error listener:', error);
+    if (errorCb) {
+      errorCb(new Error(error.message || 'Purchase cancelled or failed'));
+    }
+  });
+
+  listenersRegistered = true;
+  return true;
 }
 
 /**
- * Clean up IAP listeners and disconnect StoreKit
+ * Full teardown — intended for app shutdown only. Do NOT call this on screen
+ * unmount: it ends the connection other (queued) transactions still need.
  */
 export async function teardownAppleIap() {
   if (purchaseUpdateSub) {
@@ -134,14 +171,16 @@ export async function teardownAppleIap() {
     purchaseErrorSub.remove();
     purchaseErrorSub = null;
   }
+  listenersRegistered = false;
   const iap = getRNIap();
-  if (iap) {
+  if (iap && connected) {
     try {
       await iap.endConnection();
     } catch (e) {
       // Ignore disconnect errors on unmount
     }
   }
+  connected = false;
 }
 
 /**
@@ -153,6 +192,7 @@ export async function fetchAppleSubscriptions(
   const iap = getRNIap();
   if (!iap) return [];
   try {
+    await ensureConnected();
     const products = await iap.fetchProducts({ skus, type: 'subs' });
     if (!products) return [];
     return products;
@@ -169,6 +209,11 @@ export async function buyAppleSubscription(sku: string): Promise<void> {
   const iap = getRNIap();
   if (!iap) {
     throw new Error('Apple In-App Purchases are not available in Expo Go. Please use a Dev Client or custom native build.');
+  }
+
+  const ok = await ensureConnected();
+  if (!ok) {
+    throw new Error('Could not connect to the App Store. Please try again in a moment.');
   }
 
   try {
@@ -194,6 +239,7 @@ export async function restoreApplePurchases(): Promise<MedVerifyUser | null> {
   if (!iap) return null;
 
   try {
+    await ensureConnected();
     const purchases = await iap.getAvailablePurchases();
     if (!purchases || purchases.length === 0) {
       return null;

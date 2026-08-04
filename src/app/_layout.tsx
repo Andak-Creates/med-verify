@@ -2,11 +2,12 @@ import { BlurView } from "expo-blur";
 import * as Notifications from "expo-notifications";
 import { Stack, useRouter, ThemeProvider, DefaultTheme } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useEffect } from "react";
-import { ImageBackground } from "react-native";
+import { useEffect, useRef } from "react";
+import { ImageBackground, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { IncomingCallOverlay } from "../components/IncomingCallOverlay";
-import { AuthProvider } from "../context/AuthContext";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+import { setupAppleIap, teardownAppleIap } from "@/services/appleIap.service";
 import { CallProvider } from "../context/CallContext";
 import { SocketProvider } from "../context/SocketContext";
 import * as SystemUI from "expo-system-ui";
@@ -45,6 +46,27 @@ Notifications.setNotificationHandler({
 // instead of rendering a full second copy of the app inside the popup.
 WebBrowser.maybeCompleteAuthSession();
 
+// Initialize Apple StoreKit once for the whole app lifetime (iOS only). Doing it
+// here — rather than per-paywall — guarantees a live connection + listener at
+// launch so queued/pending transactions finish cleanly (no "Connection not
+// initialized" error), and routes every successful purchase through refreshProfile.
+function AppleIapBootstrap() {
+  const { refreshProfile } = useAuth();
+  const refreshRef = useRef(refreshProfile);
+  refreshRef.current = refreshProfile;
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    setupAppleIap(
+      () => { refreshRef.current().catch(() => {}); },
+      (err) => { console.warn("[AppleIAP]", err.message); },
+    );
+    return () => { teardownAppleIap(); };
+  }, []);
+
+  return null;
+}
+
 function NotificationTapHandler() {
   const router = useRouter();
   useEffect(() => {
@@ -78,6 +100,7 @@ export default function RootLayout() {
           />
         </ThemeProvider>
         <NotificationTapHandler />
+        <AppleIapBootstrap />
       </SafeAreaProvider>
       <IncomingCallOverlay />
       </CallProvider>
