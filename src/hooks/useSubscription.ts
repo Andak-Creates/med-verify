@@ -29,11 +29,6 @@ export function useSubscription(onUserUpdated?: (user: MedVerifyUser) => void) {
     };
   }, []);
 
-  /**
-   * Triggers subscription start based on platform:
-   * - iOS: Launches Apple StoreKit Native Sheet
-   * - Android/Web: Returns Paystack authorization URL
-   */
   const startSubscription = useCallback(async (skuOrPlanId?: string) => {
     setLoading(true);
     setError(null);
@@ -41,7 +36,11 @@ export function useSubscription(onUserUpdated?: (user: MedVerifyUser) => void) {
     try {
       if (Platform.OS === 'ios') {
         const skuToBuy = skuOrPlanId || 'com.medverify.subscription.monthly';
-        await buyAppleSubscription(skuToBuy);
+        try {
+          await buyAppleSubscription(skuToBuy);
+        } finally {
+          setLoading(false);
+        }
       } else {
         const paystackData = await initializeSubscription();
         setLoading(false);
@@ -54,9 +53,6 @@ export function useSubscription(onUserUpdated?: (user: MedVerifyUser) => void) {
     }
   }, []);
 
-  /**
-   * Restores prior purchases (iOS) or syncs Paystack subscription status (Android/Web)
-   */
   const restoreOrSync = useCallback(async (): Promise<MedVerifyUser | null> => {
     setLoading(true);
     setError(null);
