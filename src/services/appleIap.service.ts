@@ -148,6 +148,56 @@ export async function setupAppleIap(
 
   purchaseErrorSub = iap.purchaseErrorListener((error: any) => {
     console.warn('[AppleIAP] Purchase error listener:', error);
+
+    // 'already-owned' means Apple's device cache still holds the previous
+    // purchase receipt (e.g. after clearing Sandbox history). Auto-restore so
+    // the existing subscription is verified and Pro is activated.
+    if (error?.code === 'already-owned') {
+      console.log('[AppleIAP] "already-owned" — attempting automatic restore...');
+      ensureConnected().then(() => {
+        const iap = getRNIap();
+        if (!iap) return;
+        iap.getAvailablePurchases().then(async (purchases: any[]) => {
+          if (!purchases || purchases.length === 0) {
+            console.warn('[AppleIAP] No available purchases found during auto-restore.');
+            if (errorCb) errorCb(new Error('No active subscription found. Please try again or contact support.'));
+            return;
+          }
+          const latestPurchase = purchases[purchases.length - 1];
+          const token = latestPurchase.transactionReceipt || latestPurchase.purchaseToken;
+          if (!token) {
+            if (errorCb) errorCb(new Error('Could not read purchase receipt. Please try again.'));
+            return;
+          }
+          try {
+            const { api } = require('@/api/client');
+            const { data } = await api.post('/payments/verify-apple', {
+              transactionReceipt: token,
+              productId: latestPurchase.productId,
+              transactionId: latestPurchase.transactionId,
+              isRestore: true,
+            });
+            await iap.finishTransaction({ purchase: latestPurchase, isConsumable: false });
+            const user = data?.data?.user;
+            if (user && successCb) {
+              successCb(user);
+            }
+          } catch (apiErr: any) {
+            const is402 = apiErr?.response?.status === 402;
+            const msg = is402
+              ? 'Your subscription has expired. Please subscribe again.'
+              : (apiErr?.response?.data?.message || apiErr?.message || 'Could not verify existing subscription.');
+            console.warn('[AppleIAP] Auto-restore verification failed:', msg);
+            if (errorCb) errorCb(new Error(msg));
+          }
+        }).catch((restoreErr: any) => {
+          console.warn('[AppleIAP] Auto-restore getAvailablePurchases failed:', restoreErr?.message);
+          if (errorCb) errorCb(new Error('Could not access purchase history. Please use "Restore Purchases" button.'));
+        });
+      });
+      return;
+    }
+
     if (errorCb) {
       errorCb(new Error(error.message || 'Purchase cancelled or failed'));
     }

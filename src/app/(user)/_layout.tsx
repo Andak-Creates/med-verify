@@ -68,7 +68,7 @@ export default function Layout() {
         />
         <Tabs.Screen name="account/notifications" options={{ href: null }} />
         <Tabs.Screen name="account/subscription" options={{ href: null }} />
-        <Tabs.Screen name="account/paywall" options={{ href: null }} />
+        <Tabs.Screen name="account/paywall" options={{ href: null, tabBarStyle: { display: "none" } }} />
         <Tabs.Screen name="account/delete-account" options={{ href: null }} />
         <Tabs.Screen name="home/drug-details" options={{ href: null }} />
         <Tabs.Screen name="home/report" options={{ href: null }} />
