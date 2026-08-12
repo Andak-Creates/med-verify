@@ -32,7 +32,7 @@ export async function uploadAvatar(file: UploadableFile): Promise<MedVerifyUser>
   return data.data.user;
 }
 
-export async function deleteAccount(password: string): Promise<void> {
-  await api.delete('/users/me', { data: { password } });
+export async function deleteAccount(): Promise<void> {
+  await api.delete('/users/me');
 }
 

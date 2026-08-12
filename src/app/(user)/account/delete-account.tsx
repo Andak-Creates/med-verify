@@ -17,12 +17,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { getApiErrorMessage } from '@/api/client';
 
+const CONFIRM_PHRASE = 'delete permanently';
+
 export default function DeleteAccountScreen() {
   const router = useRouter();
   const { deleteAccount } = useAuth();
-  const [password, setPassword] = useState('');
+  const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+
+  const phraseOk = confirmText.trim().toLowerCase() === CONFIRM_PHRASE;
 
   const goBack = () => {
     if (router.canGoBack()) {
@@ -33,7 +37,7 @@ export default function DeleteAccountScreen() {
   };
 
   const handleDeletePressed = () => {
-    if (!password.trim()) return;
+    if (!phraseOk) return;
     setConfirmModalVisible(true);
   };
 
@@ -41,13 +45,13 @@ export default function DeleteAccountScreen() {
     setConfirmModalVisible(false);
     setDeleting(true);
     try {
-      await deleteAccount(password);
+      await deleteAccount();
       // Session is cleared in AuthContext — navigate to onboarding
       router.replace('/(onboarding)/role-select' as any);
     } catch (err) {
       Alert.alert(
         'Deletion Failed',
-        getApiErrorMessage(err, 'Incorrect password or server error. Please try again.'),
+        getApiErrorMessage(err, 'Something went wrong. Please try again.'),
       );
     } finally {
       setDeleting(false);
@@ -80,23 +84,25 @@ export default function DeleteAccountScreen() {
             </Text>
           </View>
 
-          <Text style={styles.inputLabel}>Enter your password to confirm</Text>
+          <Text style={styles.inputLabel}>
+            Type <Text style={styles.phraseHighlight}>delete permanently</Text> to confirm
+          </Text>
           <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8E9CB2" style={styles.inputIcon} />
+            <Ionicons name="create-outline" size={20} color="#8E9CB2" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Your password"
+              placeholder="delete permanently"
               placeholderTextColor="#8E9CB2"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
+              value={confirmText}
+              onChangeText={setConfirmText}
               autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
           <TouchableOpacity
-            style={[styles.btn, (!password.trim() || deleting) && styles.btnDisabled]}
-            disabled={!password.trim() || deleting}
+            style={[styles.btn, (!phraseOk || deleting) && styles.btnDisabled]}
+            disabled={!phraseOk || deleting}
             onPress={handleDeletePressed}
           >
             {deleting ? (
@@ -161,6 +167,7 @@ const styles = StyleSheet.create({
   warningBox: { backgroundColor: '#FEF2F2', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#FECACA', marginBottom: 28, flexDirection: 'row', alignItems: 'flex-start' },
   warningText: { color: '#B91C1C', fontSize: 14, fontWeight: '600', lineHeight: 20, flex: 1 },
   inputLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 },
+  phraseHighlight: { color: '#EF4444', fontWeight: '800' },
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, height: 60, marginBottom: 24, borderWidth: 1, borderColor: '#E5E7EB' },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, color: '#111827' },
