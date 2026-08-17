@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { aiChatEditState } from "./_editState";
 import {
   Image,
   KeyboardAvoidingView,
@@ -16,22 +17,80 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
+import { MedVerifyLogo } from "../../../components/MedVerifyLogo";
 
 const AI_SETUP_KEY = 'medverify_ai_setup';
 
 export default function AiChatIntroScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { edit } = useLocalSearchParams<{ edit?: string }>();
-  const isEditMode = edit === '1';
+  const mainScrollRef = useRef<ScrollView>(null);
 
   const [assistantName, setAssistantName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<"female" | "male">("female");
   const [selectedSkinTone, setSelectedSkinTone] = useState("EDB98A");
-  // If opened via settings icon (edit=1), user is always a returning user
-  const [isFirstTime, setIsFirstTime] = useState(!isEditMode);
+  // Derived from SecureStore — true = first-timer, false = returning user
+  const [isFirstTime, setIsFirstTime] = useState(true);
   // While we check storage, show nothing to avoid a flash
   const [checking, setChecking] = useState(true);
+
+  // Run every time the screen comes into focus (tab tap, back navigation, etc.)
+  // Read the module flag FIRST and consume it immediately so it never lingers.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      // Consume the edit flag immediately — reset so next focus doesn't wrongly
+      // re-enter edit mode when the user taps the AI Chat tab normally.
+      const isEditMode = aiChatEditState.isEdit;
+      aiChatEditState.isEdit = false;
+
+      setChecking(true);
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+
+      (async () => {
+        try {
+          const raw = await SecureStore.getItemAsync(AI_SETUP_KEY);
+          if (raw && !cancelled) {
+            const saved = JSON.parse(raw) as {
+              name: string;
+              avatar: 'female' | 'male';
+              skinTone: string;
+            };
+
+            if (isEditMode) {
+              // User came from the settings icon to edit — pre-fill form, stay on screen
+              setAssistantName(saved.name);
+              setSelectedAvatar(saved.avatar);
+              setSelectedSkinTone(saved.skinTone);
+              setIsFirstTime(false); // Always "Continue Conversing" in edit mode
+            } else {
+              // Returning user tapped AI Chat tab — redirect to chat immediately
+              router.replace({
+                pathname: '/(user)/ai-chat/chat',
+                params: {
+                  name: saved.name,
+                  avatar: saved.avatar,
+                  skinTone: saved.skinTone,
+                },
+              } as any);
+              return; // Don't setChecking(false) — we're leaving this screen
+            }
+          } else if (!cancelled) {
+            // No setup saved — first-time user, show the form
+            setIsFirstTime(true);
+          }
+        } catch {
+          // Storage error — fall through to setup
+          if (!cancelled) setIsFirstTime(true);
+        } finally {
+          if (!cancelled) setChecking(false);
+        }
+      })();
+
+      return () => { cancelled = true; };
+    }, [])
+  );
+
 
   const colorOptions = ["EDB98A", "D08B5B", "AE5D29"];
 
@@ -50,45 +109,6 @@ export default function AiChatIntroScreen() {
 
   const avatarSource = BITMOJIS[selectedAvatar][selectedSkinTone];
 
-  // On mount: check if user already has a saved AI setup
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await SecureStore.getItemAsync(AI_SETUP_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw) as {
-            name: string;
-            avatar: 'female' | 'male';
-            skinTone: string;
-          };
-
-          if (isEditMode) {
-            // User came from the settings icon to edit — pre-fill form, stay on this screen
-            setAssistantName(saved.name);
-            setSelectedAvatar(saved.avatar);
-            setSelectedSkinTone(saved.skinTone);
-            // isFirstTime is already false (initialized above), nothing more to do
-          } else {
-            // Returning user tapped AI Chat tab — skip setup, go straight to chat
-            router.replace({
-              pathname: '/(user)/ai-chat/chat',
-              params: {
-                name: saved.name,
-                avatar: saved.avatar,
-                skinTone: saved.skinTone,
-              },
-            } as any);
-            return;
-          }
-        }
-      } catch {
-        // Storage error — fall through to setup
-      } finally {
-        setChecking(false);
-      }
-    })();
-  }, [isEditMode]);
-
   const handleStart = async () => {
     const setup = {
       name: assistantName,
@@ -100,7 +120,7 @@ export default function AiChatIntroScreen() {
     } catch {
       // Non-fatal: proceed even if storage fails
     }
-    router.push({
+    router.replace({
       pathname: "/(user)/ai-chat/chat",
       params: setup,
     } as any);
@@ -116,6 +136,7 @@ export default function AiChatIntroScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
+          ref={mainScrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -123,7 +144,7 @@ export default function AiChatIntroScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logoText}>MedVerify</Text>
+            <MedVerifyLogo size="xs" showText={true} textColor="#0B1C5A" />
             <View style={styles.headerActions}>
               <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
                 <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />

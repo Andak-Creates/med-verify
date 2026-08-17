@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -41,6 +41,14 @@ function formatSessionDate(c: PharmacistConsultation): string {
 export default function ConsultsScreen() {
   const router = useRouter();
   const { profile } = usePharmacistProfile();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
+
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
 
   const upcoming = usePharmacistConsultations('upcoming');
@@ -203,6 +211,7 @@ export default function ConsultsScreen() {
       </View>
 
       <ScrollView
+        ref={mainScrollRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={

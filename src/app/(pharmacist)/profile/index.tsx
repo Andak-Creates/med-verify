@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -25,6 +25,14 @@ function formatTime(h: number, m: number): string {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
+
   const { profile, isLoading, error, reload } = usePharmacistProfile();
   const [publicStats, setPublicStats] = useState<PublicPharmacist | null>(null);
   const [showPcnModal, setShowPcnModal] = useState(false);
@@ -84,7 +92,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={mainScrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Profile Hero */}
         <View style={styles.heroSection}>

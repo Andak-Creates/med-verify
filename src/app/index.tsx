@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { View, Text, ImageBackground, StyleSheet } from 'react-native';
+import { View, Text, Image, ImageBackground, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withRepeat } from 'react-native-reanimated';
 
@@ -51,11 +52,11 @@ function LoadingSplash() {
       />
       <View className="flex-1 items-center justify-center px-6">
         <View className="w-full max-w-sm bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 items-center shadow-2xl border border-white/50">
-          <View className="bg-[#0b1c5a] w-16 h-12 rounded-2xl items-center justify-center mb-6">
-            <View className="bg-white w-6 h-6 rounded-full items-center justify-center">
-              <Text className="text-[#0b1c5a] font-black text-xs">✓</Text>
-            </View>
-          </View>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 18 }}
+            resizeMode="contain"
+          />
           <Text className="text-4xl font-extrabold text-[#0b1c5a] mb-2 tracking-tight">
             MedVerify
           </Text>
@@ -75,7 +76,7 @@ function LoadingSplash() {
           </View>
 
           <View className="flex-row items-center bg-white/60 backdrop-blur-md border border-white/50 px-4 py-2 rounded-full">
-            <Text className="text-[10px] mr-2">🔒</Text>
+            <Ionicons name="lock-closed" size={12} color="#0b1c5a" style={{ marginRight: 6 }} />
             <Text className="text-[10px] font-bold text-[#0b1c5a] tracking-wider">
               AES-256 ENCRYPTED
             </Text>

@@ -150,7 +150,7 @@ export default function BookConsultationScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/(user)/pharmacy/[id]', params: { id: pharmacistProfileId } } as any)} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace({ pathname: '/(user)/pharmacy/[id]', params: { id: pharmacistProfileId } } as any)} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={BRAND} />
         </TouchableOpacity>
         <View style={styles.headerRight}>

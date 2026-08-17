@@ -6,6 +6,7 @@ import type { Wallet, WalletTransaction, Withdrawal } from '@/types/api';
 /** Pharmacist wallet balance + recent ledger, with pull-to-refresh. */
 export function useWallet() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [bankAccount, setBankAccount] = useState<import('@/types/api').BankAccount | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -16,11 +17,13 @@ export function useWallet() {
     else setIsRefreshing(true);
     setError(null);
     try {
-      const [w, txns] = await Promise.all([
+      const [w, b, txns] = await Promise.all([
         walletService.getWallet(),
+        walletService.getBankAccount(),
         walletService.getTransactions({ limit: 50 }),
       ]);
       setWallet(w);
+      setBankAccount(b);
       setTransactions(txns.items);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not load your wallet.'));
@@ -36,7 +39,7 @@ export function useWallet() {
 
   const refresh = useCallback(() => load('refresh'), [load]);
 
-  return { wallet, transactions, isLoading, isRefreshing, error, refresh };
+  return { wallet, bankAccount, transactions, isLoading, isRefreshing, error, refresh };
 }
 
 /** Payout history. */

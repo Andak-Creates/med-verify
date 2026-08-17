@@ -86,9 +86,10 @@ export default function DrugDetailsScreen() {
               <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{drug.strength}</Text>
             ) : null}
             <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ backgroundColor: statusColor, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <View style={{ backgroundColor: statusColor, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                {isActive && <Ionicons name="checkmark-circle-outline" size={12} color="#fff" />}
                 <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 1 }}>
-                  {isActive ? '✓ ' : ''}{statusLabel.toUpperCase()}
+                  {statusLabel.toUpperCase()}
                 </Text>
               </View>
             </View>
@@ -116,9 +117,10 @@ export default function DrugDetailsScreen() {
         ) : null}
 
         {/* Disclaimer */}
-        <View style={{ backgroundColor: '#FFF8E7', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#FDE68A', marginBottom: 8 }}>
-          <Text style={{ fontSize: 11, color: '#92400E', lineHeight: 18, textAlign: 'center' }}>
-            ⚠️ This shows the official NAFDAC registry record only. For dosage, side effects, and clinical guidance, always consult a licensed pharmacist or physician.
+        <View style={{ backgroundColor: '#FFF8E7', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#FDE68A', marginBottom: 8, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+          <Ionicons name="warning-outline" size={16} color="#92400E" style={{ marginTop: 1 }} />
+          <Text style={{ flex: 1, fontSize: 11, color: '#92400E', lineHeight: 18 }}>
+            This shows the official NAFDAC registry record only. For dosage, side effects, and clinical guidance, always consult a licensed pharmacist or physician.
           </Text>
         </View>
       </ScrollView>

@@ -1,6 +1,6 @@
+import { useCallback, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
+import { MedVerifyLogo } from "../../../components/MedVerifyLogo";
 import { useConsultations } from "@/hooks/useConsultations";
 import { useScanHistory } from "@/hooks/useDrugVerification";
 import { useSessionPayment } from "@/hooks/useSessionPayment";
@@ -64,6 +65,14 @@ function formatConsultationDate(isoDate: string): string {
 export default function HistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
+
   const [activeTab, setActiveTab] = useState<"meds" | "consultations">("meds");
   const [medFilter, setMedFilter] = useState<"all" | "authentic" | "flagged">("all");
 
@@ -253,6 +262,7 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
+        ref={mainScrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -268,7 +278,7 @@ export default function HistoryScreen() {
       >
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={styles.logoText}>MedVerify</Text>
+          <MedVerifyLogo size="xs" showText={true} textColor="#0B1C5A" />
           <View style={styles.headerActions}>
             <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
               <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />

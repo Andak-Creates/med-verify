@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MedVerifyLogo } from "../../../components/MedVerifyLogo";
 
 export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -34,7 +35,7 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.container}>
       {/* ── Header ─────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={styles.logoText}>MedVerify</Text>
+        <MedVerifyLogo size="xs" showText={true} textColor="#0B1C5A" />
         <TouchableOpacity style={styles.helpButton}>
           <Ionicons name="help-circle-outline" size={24} color="#0B1C5A" />
         </TouchableOpacity>

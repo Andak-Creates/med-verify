@@ -1,4 +1,4 @@
-﻿import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -71,7 +71,7 @@ export default function BookingConfirmScreen() {
     { label: "Time", value: confirmation?.timeSlot ?? "—", icon: "time-outline" },
     {
       label: "Priority",
-      value: confirmation?.urgency === "high" ? "⚡ High" : "Normal",
+      value: confirmation?.urgency === "high" ? "High Priority" : "Normal",
       icon: "flag-outline",
     },
     {
@@ -99,7 +99,7 @@ export default function BookingConfirmScreen() {
 
         <Animated.View style={{ opacity: fadeAnim }}>
           {/* Title block */}
-          <Text style={styles.title}>Booking Placed! 🎉</Text>
+          <Text style={styles.title}>Booking Placed!</Text>
           <Text style={styles.subtitle}>
             Your consultation request has been sent.{"\n"}You'll be notified as
             soon as the pharmacist accepts.

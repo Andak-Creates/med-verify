@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -29,7 +31,15 @@ function formatDate(iso: string): string {
 
 export default function WalletScreen() {
   const router = useRouter();
-  const { wallet, transactions, isLoading, isRefreshing, error, refresh } = useWallet();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
+
+  const { wallet, bankAccount, transactions, isLoading, isRefreshing, error, refresh } = useWallet();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -55,6 +65,7 @@ export default function WalletScreen() {
         </View>
       ) : (
         <ScrollView
+          ref={mainScrollRef}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#0B1C5A" />}
@@ -100,6 +111,40 @@ export default function WalletScreen() {
             <TouchableOpacity onPress={() => router.push('/(pharmacist)/wallet/earnings-history' as any)}>
               <Text style={styles.historyLink}>History</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Payout Bank Account Card */}
+          <View style={{ backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', padding: 16, marginVertical: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="card-outline" size={18} color="#0B1C5A" />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0B1C5A' }}>Payout Bank Account</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/(pharmacist)/wallet/withdraw' as any)}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#16a34a' }}>
+                  {bankAccount ? 'Manage' : '+ Add Account'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {bankAccount ? (
+              <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0B1C5A' }}>{bankAccount.accountName}</Text>
+                <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                  {bankAccount.bankName} • <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontWeight: '700' }}>{bankAccount.accountNumber}</Text>
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => router.push('/(pharmacist)/wallet/withdraw' as any)}
+                style={{ backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="alert-circle-outline" size={20} color="#D97706" />
+                <Text style={{ fontSize: 12, color: '#B45309', flex: 1, fontWeight: '600' }}>
+                  No payout account linked yet. Tap to add your 10-digit bank account.
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Recent Activity */}

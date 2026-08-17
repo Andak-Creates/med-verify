@@ -78,8 +78,9 @@ export default function SubscriptionScreen() {
       <View style={styles.content}>
         <View style={styles.card}>
           {isPro ? (
-            <View style={styles.proBadge}>
-              <Text style={styles.proBadgeText}>✦ PRO MEMBER</Text>
+            <View style={[styles.proBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+              <Ionicons name="sparkles" size={12} color="#fff" />
+              <Text style={styles.proBadgeText}>PRO MEMBER</Text>
             </View>
           ) : (
             <View style={[styles.proBadge, { backgroundColor: '#6B7280' }]}>

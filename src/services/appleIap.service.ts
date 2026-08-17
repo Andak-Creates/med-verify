@@ -102,17 +102,33 @@ export async function setupAppleIap(
         throw new Error('No receipt/token returned from Apple StoreKit');
       }
 
+      // Debug: log the full purchase fields so BE dev can see the token format
+      console.log('[AppleIAP] Purchase received:', {
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+        originalTransactionId: purchase.originalTransactionIdentifierIOS,
+        receiptType: purchase.transactionReceipt ? 'transactionReceipt' : 'purchaseToken',
+        receiptLength: token?.length,
+        receiptPreview: token?.slice(0, 80) + '...',
+      });
+
       let user: MedVerifyUser | null = null;
       let verifyError: Error | null = null;
 
       try {
-        // Verify receipt with MedVerify backend
-        const { data } = await api.post('/payments/verify-apple', {
+        const payload = {
           transactionReceipt: token,
           productId: purchase.productId,
           transactionId: purchase.transactionId,
+        };
+        console.log('[AppleIAP] Sending to backend /payments/verify-apple:', {
+          productId: payload.productId,
+          transactionId: payload.transactionId,
+          receiptLength: token?.length,
         });
+        const { data } = await api.post('/payments/verify-apple', payload);
         user = data?.data?.user || null;
+        console.log('[AppleIAP] Backend responded with user isPro:', user?.isPro);
       } catch (apiErr: any) {
         const is404 = apiErr?.response?.status === 404;
         const msg = is404
@@ -120,9 +136,6 @@ export async function setupAppleIap(
           : (apiErr?.response?.data?.message || apiErr?.message || 'Backend receipt verification failed');
         verifyError = new Error(msg);
       } finally {
-        // Always finish the transaction so StoreKit's queue doesn't lock up.
-        // Ensure the connection is live first (a queued transaction on launch can
-        // arrive before/independently of an explicit setup call).
         try {
           await ensureConnected();
           await iap.finishTransaction({ purchase, isConsumable: false });

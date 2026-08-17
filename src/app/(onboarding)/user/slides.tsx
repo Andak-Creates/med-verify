@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   Dimensions,
-  FlatList,
   Image,
   Pressable,
   Text,
@@ -9,10 +9,12 @@ import {
   ViewToken,
 } from 'react-native';
 import Animated, {
+  Extrapolation,
+  interpolate,
+  SharedValue,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 
@@ -31,12 +33,18 @@ function Slide1Illustration() {
       <View style={{
         position: 'absolute', top: 14, right: 14,
         width: 44, height: 44, borderRadius: 12,
-        backgroundColor: '#0b1c5a',
+        backgroundColor: '#fff',
         alignItems: 'center', justifyContent: 'center',
-        shadowColor: '#000', shadowOpacity: 0.3,
+        shadowColor: '#000', shadowOpacity: 0.2,
         shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
+        padding: 4,
       }}>
-        <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>✓</Text>
+        <Image
+          source={require('../../../../assets/images/logo.png')}
+          style={{ width: '100%', height: '100%', borderRadius: 8 }}
+          resizeMode="contain"
+        />
       </View>
     </View>
   );
@@ -61,7 +69,7 @@ function Slide2Illustration() {
         shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
         gap: 6,
       }}>
-        <Text style={{ fontSize: 13 }}>🛡️</Text>
+        <Ionicons name="shield-checkmark" size={14} color="#0b1c5a" />
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#0b1c5a' }}>Verified Experts</Text>
       </View>
     </View>
@@ -69,7 +77,6 @@ function Slide2Illustration() {
 }
 
 // ─── Illustration: Slide 3 ─────────────────────────────────────────────────
-// AI health companion chat UI
 function Slide3Illustration() {
   return (
     <View style={{
@@ -94,7 +101,7 @@ function Slide3Illustration() {
           alignItems: 'center', justifyContent: 'center',
           marginRight: 10,
         }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>✦</Text>
+          <Ionicons name="sparkles" size={18} color="#fff" />
         </View>
         <View>
           <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>MedVerify AI</Text>
@@ -146,14 +153,14 @@ function Slide3Illustration() {
         backgroundColor: '#f3f4f6',
         borderRadius: 50, paddingHorizontal: 14, paddingVertical: 10,
       }}>
-        <Text style={{ fontSize: 16, marginRight: 8, color: '#9ca3af' }}>⌨️</Text>
+        <Ionicons name="chatbox-outline" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
         <Text style={{ flex: 1, fontSize: 13, color: '#9ca3af' }}>Ask anything...</Text>
         <View style={{
-          width: 30, height: 30, borderRadius: 15,
+          width: 28, height: 28, borderRadius: 14,
           backgroundColor: '#0b1c5a',
           alignItems: 'center', justifyContent: 'center',
         }}>
-          <Text style={{ color: '#fff', fontSize: 14 }}>▶</Text>
+          <Ionicons name="send" size={12} color="#fff" />
         </View>
       </View>
     </View>
@@ -185,69 +192,46 @@ const SLIDES = [
   },
 ];
 
-// ─── Pagination Dot ────────────────────────────────────────────────────────
-function PaginationDot({ index, currentIndex }: { index: number; currentIndex: number }) {
-  const isActive = index === currentIndex;
-  const width = useSharedValue(isActive ? 28 : 8);
-
-  React.useEffect(() => {
-    width.value = withSpring(isActive ? 28 : 8, { damping: 14, stiffness: 160 });
-  }, [isActive]);
-
-  const style = useAnimatedStyle(() => ({ width: width.value }));
-
-  return (
-    <Animated.View
-      style={[style, {
-        height: 8, borderRadius: 4,
-        backgroundColor: isActive ? '#0b1c5a' : '#0b1c5a33',
-        marginHorizontal: 3,
-      }]}
-    />
-  );
-}
-
-// ─── Slide Item ────────────────────────────────────────────────────────────
-function SlideItem({
-  item,
-  index,
-  currentIndex,
-}: {
-  item: (typeof SLIDES)[0];
-  index: number;
-  currentIndex: number;
-}) {
-  const opacity = useSharedValue(index === 0 ? 1 : 0.5);
-  const scale = useSharedValue(index === 0 ? 1 : 0.96);
-
-  React.useEffect(() => {
-    const isActive = index === currentIndex;
-    opacity.value = withTiming(isActive ? 1 : 0.5, { duration: 280 });
-    scale.value = withSpring(isActive ? 1 : 0.96, { damping: 16, stiffness: 150 });
-  }, [currentIndex]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
-
-  const { Illustration } = item;
+// ─── Native 120 FPS UI-Thread Pagination Dot ───────────────────────────────────────────
+function PaginationDot({ index, scrollX }: { index: number; scrollX: SharedValue<number> }) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const inputRange = [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH];
+    const width = interpolate(scrollX.value, inputRange, [8, 28, 8], Extrapolation.CLAMP);
+    const opacity = interpolate(scrollX.value, inputRange, [0.35, 1, 0.35], Extrapolation.CLAMP);
+    return {
+      width,
+      opacity,
+    };
+  });
 
   return (
     <Animated.View
       style={[
         animatedStyle,
         {
-          width: SCREEN_WIDTH,
-          paddingHorizontal: 24,
-          paddingTop: 52,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: '#0b1c5a',
+          marginHorizontal: 3,
         },
       ]}
-    >
-      {/* Illustration */}
-      <Illustration />
+    />
+  );
+}
 
-      {/* Text */}
+// ─── Slide Item ────────────────────────────────────────────────────────────
+const SlideItem = React.memo(function SlideItem({ item }: { item: (typeof SLIDES)[0] }) {
+  const { Illustration } = item;
+
+  return (
+    <View
+      style={{
+        width: SCREEN_WIDTH,
+        paddingHorizontal: 24,
+        paddingTop: 52,
+      }}
+    >
+      <Illustration />
       <Text style={{
         fontSize: 34, fontWeight: '800', color: '#0b1c5a',
         textAlign: 'center', lineHeight: 42,
@@ -261,15 +245,23 @@ function SlideItem({
       }}>
         {item.description}
       </Text>
-    </Animated.View>
+    </View>
   );
-}
+});
 
 // ─── Main Screen ───────────────────────────────────────────────────────────
 export default function SlidesScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<Animated.FlatList<any>>(null);
+
+  const scrollX = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+    },
+  });
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -280,7 +272,6 @@ export default function SlidesScreen() {
   ).current;
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
-
   const isLastSlide = currentIndex === SLIDES.length - 1;
 
   const goToNext = () => {
@@ -297,20 +288,27 @@ export default function SlidesScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Slides */}
-      <FlatList
+      {/* Native 120 FPS Animated FlatList */}
+      <Animated.FlatList
         ref={flatListRef}
         data={SLIDES}
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        renderItem={({ item, index }) => (
-          <SlideItem item={item} index={index} currentIndex={currentIndex} />
-        )}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
+          index,
+        })}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={3}
+        renderItem={({ item }) => <SlideItem item={item} />}
       />
 
       {/* Bottom Controls */}
@@ -318,7 +316,7 @@ export default function SlidesScreen() {
         {/* Pagination */}
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 24 }}>
           {SLIDES.map((_, i) => (
-            <PaginationDot key={i} index={i} currentIndex={currentIndex} />
+            <PaginationDot key={i} index={i} scrollX={scrollX} />
           ))}
         </View>
 
@@ -371,7 +369,7 @@ export default function SlidesScreen() {
             alignSelf: 'center',
             borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
           }}>
-            <Text style={{ fontSize: 12, marginRight: 6 }}>🔒</Text>
+            <Ionicons name="lock-closed" size={12} color="#0b1c5a" style={{ marginRight: 6 }} />
             <Text style={{
               fontSize: 10, fontWeight: '700', color: '#0b1c5a', letterSpacing: 2,
             }}>

@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
+import { MedVerifyLogo } from "../../../components/MedVerifyLogo";
 import { getApiErrorMessage } from "@/api/client";
 
 // Must match the backend's VALID_BLOOD_GROUPS in users.controller.js exactly.
@@ -37,6 +38,14 @@ const BLOOD_GROUPS = [
 export default function AccountScreen() {
   const router = useRouter();
   const { user, logout, updateProfile, uploadAvatar, isPro } = useAuth();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
+
   const [biometricEnabled, setBiometricEnabled] = useState(true);
   const [editVisible, setEditVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -153,13 +162,14 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
+        ref={mainScrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.logoText}>MedVerify</Text>
+          <MedVerifyLogo size="xs" showText={true} textColor="#0B1C5A" />
           <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
             <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
             <View style={styles.notifDot} />

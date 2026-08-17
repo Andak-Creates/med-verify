@@ -28,7 +28,7 @@ export default function PaywallScreen() {
     activatedRef.current = true;
     await refreshProfile();
     Alert.alert(
-      "Welcome to Pro! 🎉",
+      "Welcome to Pro!",
       "Your subscription is active. Enjoy unlimited access.",
     );
     router.back();
@@ -182,44 +182,7 @@ export default function PaywallScreen() {
           </Text>
         )}
 
-        {/* Temporary Debug Log Window */}
-        <View
-          style={{
-            backgroundColor: "#f3f4f6",
-            padding: 10,
-            borderRadius: 8,
-            marginBottom: 10,
-            borderWidth: 1,
-            borderColor: "#d1d5db",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 10,
-              fontWeight: "bold",
-              marginBottom: 4,
-              color: "#374151",
-            }}
-          >
-            🛠 IAP Debug Logs:
-          </Text>
-          <Text style={{ fontSize: 9, color: "#4b5563" }}>
-            Platform: {isIos ? "iOS" : "Other"}
-          </Text>
-          <Text style={{ fontSize: 9, color: "#4b5563" }}>
-            SKUs Found: {appleSubscriptions.length}
-          </Text>
-          <Text style={{ fontSize: 9, color: "#4b5563" }}>
-            Data:{" "}
-            {JSON.stringify(
-              appleSubscriptions.map((s) => ({
-                id: s.productId,
-                title: s.title,
-                price: (s as any).localizedPrice,
-              })),
-            )}
-          </Text>
-        </View>
+
 
         {/* CTA */}
         {(!isIos || appleSubscriptions.length === 0) && (

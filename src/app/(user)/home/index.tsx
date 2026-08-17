@@ -11,10 +11,11 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
+import { MedVerifyLogo } from '../../../components/MedVerifyLogo';
 
 const TIPS = [
   { text: "Always check the expiry date before use.", image: require('../../../../assets/images/tip_expiry.png') },
@@ -50,6 +51,13 @@ export default function HomeScreen() {
   
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -72,6 +80,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
+        ref={mainScrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -86,7 +95,7 @@ export default function HomeScreen() {
       >
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={styles.logoText}>MedVerify</Text>
+          <MedVerifyLogo size="xs" showText={true} textColor="#0B1C5A" />
 
           <View style={styles.headerActions}>
             {/* Bell */}
@@ -119,8 +128,9 @@ export default function HomeScreen() {
           </View>
 
           {/* PRO badge */}
-          <View style={[styles.proBadge, !isPro && styles.basicBadge]}>
-            <Text style={styles.proBadgeText}>{isPro ? "✦ PRO" : "✦ BASIC"}</Text>
+          <View style={[styles.proBadge, !isPro && styles.basicBadge, { flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
+            <Ionicons name={isPro ? "sparkles" : "person-outline"} size={11} color={isPro ? "#0B1C5A" : "#4B5563"} />
+            <Text style={styles.proBadgeText}>{isPro ? "PRO" : "BASIC"}</Text>
           </View>
         </View>
 

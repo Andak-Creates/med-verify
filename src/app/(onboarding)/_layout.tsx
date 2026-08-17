@@ -13,7 +13,6 @@ export default function OnboardingLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: 'transparent' },
-          cardStyle: { backgroundColor: 'transparent' },
           animation: 'fade',
         }}
       />

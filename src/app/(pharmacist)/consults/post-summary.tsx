@@ -78,7 +78,11 @@ export default function PostSummaryScreen() {
               {booking.rating != null && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Patient rating</Text>
-                  <Text style={styles.summaryValue}>{'★'.repeat(booking.rating)}</Text>
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    {Array.from({ length: booking.rating }).map((_, i) => (
+                      <Ionicons key={i} name="star" size={14} color="#F59E0B" />
+                    ))}
+                  </View>
                 </View>
               )}
             </View>

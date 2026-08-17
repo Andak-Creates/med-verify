@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { MedVerifyLogo } from '../../components/MedVerifyLogo';
 
 export default function RoleSelectScreen() {
   const router = useRouter();
@@ -20,10 +21,7 @@ export default function RoleSelectScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoCheck}>✓</Text>
-        </View>
-        <Text style={styles.logoText}>MedVerify</Text>
+        <MedVerifyLogo size="sm" showText={true} textColor="#0b1c5a" />
       </View>
 
       <View style={styles.content}>

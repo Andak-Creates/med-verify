@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +33,7 @@ export default function WithdrawScreen() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [editingBank, setEditingBank] = useState(false);
   const [bankSearch, setBankSearch] = useState('');
+  const [bankDropdownOpen, setBankDropdownOpen] = useState(false);
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [savingBank, setSavingBank] = useState(false);
@@ -254,29 +257,95 @@ export default function WithdrawScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Add Payout Account</Text>
 
-            <Text style={styles.inputLabel}>Search bank</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. GTBank"
-              placeholderTextColor="#94A3B8"
-              value={bankSearch}
-              onChangeText={setBankSearch}
-            />
-            <View style={styles.bankList}>
-              {filteredBanks.map((b) => (
-                <TouchableOpacity
-                  key={b.code}
-                  style={[styles.bankOption, selectedBankCode === b.code && styles.bankOptionActive]}
-                  onPress={() => setSelectedBankCode(b.code)}
-                >
-                  <Text style={[styles.bankOptionText, selectedBankCode === b.code && styles.bankOptionTextActive]}>
-                    {b.name}
-                  </Text>
-                  {selectedBankCode === b.code && <Ionicons name="checkmark-circle" size={18} color="#0B1C5A" />}
-                </TouchableOpacity>
-              ))}
-              {filteredBanks.length === 0 && <Text style={styles.emptyHint}>No banks match your search.</Text>}
-            </View>
+            {/* Bank Dropdown Trigger */}
+            <Text style={styles.inputLabel}>Select Bank</Text>
+            <TouchableOpacity
+              style={styles.dropdownTrigger}
+              onPress={() => setBankDropdownOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={selectedBankCode ? styles.dropdownValueText : styles.dropdownPlaceholderText}>
+                {selectedBankCode
+                  ? (banks.find(b => b.code === selectedBankCode)?.name ?? 'Selected bank')
+                  : 'Tap to choose your bank…'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </TouchableOpacity>
+
+            {/* Bank Picker Modal */}
+            <Modal
+              visible={bankDropdownOpen}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setBankDropdownOpen(false)}
+            >
+              <Pressable style={styles.modalOverlay} onPress={() => setBankDropdownOpen(false)}>
+                <Pressable style={styles.modalSheet} onPress={() => {}}>
+                  {/* Handle bar */}
+                  <View style={styles.modalHandle} />
+                  <Text style={styles.modalTitle}>Choose Your Bank</Text>
+
+                  {/* Search */}
+                  <View style={styles.modalSearchRow}>
+                    <Ionicons name="search-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={styles.modalSearchInput}
+                      placeholder="Search bank name…"
+                      placeholderTextColor="#94A3B8"
+                      value={bankSearch}
+                      onChangeText={setBankSearch}
+                      autoFocus
+                    />
+                    {bankSearch.length > 0 && (
+                      <TouchableOpacity onPress={() => setBankSearch('')}>
+                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Bank list */}
+                  <ScrollView
+                    style={{ flex: 1 }}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {filteredBanks.length === 0 ? (
+                      <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+                        <Ionicons name="search-outline" size={28} color="#CBD5E1" />
+                        <Text style={{ marginTop: 10, color: '#94A3B8', fontSize: 14 }}>No banks match "{bankSearch}"</Text>
+                      </View>
+                    ) : (
+                      filteredBanks.map((b) => (
+                        <TouchableOpacity
+                          key={b.code}
+                          style={[
+                            styles.modalBankItem,
+                            selectedBankCode === b.code && styles.modalBankItemActive,
+                          ]}
+                          onPress={() => {
+                            setSelectedBankCode(b.code);
+                            setBankDropdownOpen(false);
+                            setBankSearch('');
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.modalBankItemText,
+                              selectedBankCode === b.code && styles.modalBankItemTextActive,
+                            ]}
+                          >
+                            {b.name}
+                          </Text>
+                          {selectedBankCode === b.code && (
+                            <Ionicons name="checkmark-circle" size={20} color="#0B1C5A" />
+                          )}
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </ScrollView>
+                </Pressable>
+              </Pressable>
+            </Modal>
 
             <Text style={[styles.inputLabel, { marginTop: 16 }]}>Account Number</Text>
             <TextInput
@@ -435,6 +504,82 @@ const styles = StyleSheet.create({
   bankOptionText: { fontSize: 14, color: '#334155', fontWeight: '600' },
   bankOptionTextActive: { color: '#0B1C5A', fontWeight: '800' },
   emptyHint: { fontSize: 13, color: '#94A3B8', paddingVertical: 8 },
+  // Dropdown
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: '#fff',
+  },
+  dropdownValueText: { fontSize: 14, color: '#1E293B', fontWeight: '600', flex: 1, marginRight: 6 },
+  dropdownPlaceholderText: { fontSize: 14, color: '#94A3B8', flex: 1, marginRight: 6 },
+  // Modal picker
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    height: '75%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    marginBottom: 16,
+  },
+  modalSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1E293B',
+    paddingVertical: 0,
+  },
+  modalBankItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalBankItemActive: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0,
+    marginBottom: 2,
+  },
+  modalBankItemText: { fontSize: 14, color: '#334155', fontWeight: '500', flex: 1 },
+  modalBankItemTextActive: { color: '#0B1C5A', fontWeight: '800' },
   verifyBtn: {
     marginTop: 16,
     backgroundColor: '#0B1C5A',

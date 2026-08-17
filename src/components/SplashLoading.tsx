@@ -1,5 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Text, View } from "react-native";
+import { Animated, Easing, Image, Text, View } from "react-native";
 
 const LOADING_TEXTS = [
   "Initializing secure connection...",
@@ -51,11 +52,11 @@ export function SplashLoading({ message }: { message?: string }) {
       {/* Central Glassmorphism Card */}
       <View className="w-full max-w-sm bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 items-center shadow-2xl border border-white/50">
         {/* Logo Icon */}
-        <View className="bg-[#0b1c5a] w-16 h-12 rounded-2xl items-center justify-center mb-6">
-          <View className="bg-white w-6 h-6 rounded-full items-center justify-center">
-            <Text className="text-[#0b1c5a] font-black text-xs">✓</Text>
-          </View>
-        </View>
+        <Image
+          source={require("../../assets/images/logo.png")}
+          style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 18 }}
+          resizeMode="contain"
+        />
 
         {/* App Name */}
         <Text className="text-4xl font-extrabold text-[#0b1c5a] mb-2 tracking-tight">
@@ -89,7 +90,7 @@ export function SplashLoading({ message }: { message?: string }) {
 
         {/* Badge */}
         <View className="flex-row items-center bg-white/60 backdrop-blur-md border border-white/50 px-4 py-2 rounded-full">
-          <Text className="text-[10px] mr-2">🔒</Text>
+          <Ionicons name="lock-closed" size={12} color="#0b1c5a" style={{ marginRight: 6 }} />
           <Text className="text-[10px] font-bold text-[#0b1c5a] tracking-wider">
             AES-256 ENCRYPTED
           </Text>

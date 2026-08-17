@@ -1,55 +1,72 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React from "react";
+import { Image, StyleSheet, Text, View, ViewStyle } from "react-native";
 
 interface MedVerifyLogoProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   showText?: boolean;
+  textColor?: string;
+  style?: ViewStyle;
 }
 
-export function MedVerifyLogo({ size = 'md', showText = true }: MedVerifyLogoProps) {
-  const scale = {
-    sm: { box: 36, radius: 10, vWidth: 16, vHeight: 12, text: 16 },
-    md: { box: 48, radius: 14, vWidth: 22, vHeight: 16, text: 20 },
-    lg: { box: 72, radius: 20, vWidth: 32, vHeight: 24, text: 28 },
-    xl: { box: 96, radius: 28, vWidth: 44, vHeight: 32, text: 36 },
-  }[size];
+export function MedVerifyLogo({
+  size = "md",
+  showText = false,
+  textColor = "#0B1C5A",
+  style,
+}: MedVerifyLogoProps) {
+  const iconSizes = {
+    xs: 24,
+    sm: 36,
+    md: 48,
+    lg: 64,
+    xl: 88,
+  };
+
+  const fontSizes = {
+    xs: 14,
+    sm: 18,
+    md: 22,
+    lg: 28,
+    xl: 34,
+  };
+
+  const iconDim = iconSizes[size] || 48;
+  const fontSize = fontSizes[size] || 22;
 
   return (
-    <View className="items-center justify-center flex-row gap-3">
-      {/* Hyper-Minimal Icon Squircle */}
-      <View
+    <View style={[styles.container, showText && styles.row, style]}>
+      <Image
+        source={require("../../assets/images/logo.png")}
         style={{
-          width: scale.box,
-          height: scale.box,
-          borderRadius: scale.radius,
-          backgroundColor: '#0B1C5A',
+          width: iconDim,
+          height: iconDim,
+          borderRadius: iconDim * 0.22,
         }}
-        className="items-center justify-center shadow-sm"
-      >
-        {/* Minimalist 'V' Checkmark Mark */}
-        <View
-          style={{
-            width: scale.vWidth,
-            height: scale.vHeight,
-            borderLeftWidth: 3,
-            borderBottomWidth: 3,
-            borderColor: '#00C6FF',
-            transform: [{ rotate: '-45deg' }],
-            marginTop: -2,
-            marginLeft: 2,
-          }}
-        />
-      </View>
-
-      {/* Clean Wordmark */}
+        resizeMode="contain"
+      />
       {showText && (
-        <Text
-          style={{ fontSize: scale.text }}
-          className="font-bold text-[#0B1C5A] tracking-tight"
-        >
-          Med<Text className="text-[#00C6FF]">Verify</Text>
+        <Text style={[styles.text, { color: textColor, fontSize }]}>
+          MedVerify
         </Text>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  text: {
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+});
+
+

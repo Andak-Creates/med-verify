@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { aiChatEditState } from "./_editState";
 import {
   Alert,
   Animated,
+  BackHandler,
   Easing,
   FlatList,
   Image,
@@ -143,25 +146,84 @@ export default function AiChatScreen() {
   const listRef = useRef<FlatList>(null);
   const slideAnim = useRef(new Animated.Value(300)).current;
 
-  // Load saved conversation so it survives app restarts. If there's none yet,
-  // keep the local greeting.
+  // ─── Local persistence ──────────────────────────────────────────────────────
+  // SecureStore key that holds the full local message list so AI error replies
+  // (which are never stored on the backend) survive app restarts.
+  const LOCAL_MSGS_KEY = 'medverify_chat_messages';
+
+  const saveMessagesLocally = useCallback(async (msgs: Message[]) => {
+    try {
+      // Only keep the last 200 messages to avoid SecureStore size limits
+      const trimmed = msgs.slice(-200);
+      await SecureStore.setItemAsync(LOCAL_MSGS_KEY, JSON.stringify(trimmed));
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
+  const loadLocalMessages = useCallback(async (): Promise<Message[]> => {
+    try {
+      const raw = await SecureStore.getItemAsync(LOCAL_MSGS_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw) as Message[];
+    } catch {
+      return [];
+    }
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // Intercept Android hardware back button — always go Home, never back to setup
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.replace('/(user)/home' as any);
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Load saved conversation so it survives app restarts. Strategy:
+  // 1. Load local cache first (instant, includes AI error replies).
+  // 2. Fetch server history and merge — server messages are canonical,
+  //    but we keep any local-only messages (e.g. error replies) that
+  //    aren't on the server.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Step 1: restore from local cache immediately (no flash)
+      const local = await loadLocalMessages();
+      if (!cancelled && local.length > 0) {
+        setMessages(local);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
+      }
+
+      // Step 2: fetch server history and merge
       try {
         const history = await getAiHistory();
-        if (cancelled || history.length === 0) return;
-        setMessages(
-          history.map((m) => ({
+        if (cancelled) return;
+        if (history.length === 0 && local.length === 0) return;
+
+        if (history.length > 0) {
+          const serverMsgs: Message[] = history.map((m) => ({
             id: m.id,
             role: m.role,
             text: m.content,
             time: formatTime(m.createdAt),
-          })),
-        );
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 150);
+          }));
+
+          // Keep any local messages not present on server (error replies etc.)
+          const serverIds = new Set(serverMsgs.map((m) => m.id));
+          const localOnly = local.filter((m) => !serverIds.has(m.id));
+
+          // Merge: interleave local-only messages back in by insertion order
+          // Simple approach: append local-only after server list, then re-sort
+          // by the fact that local-only IDs are timestamp strings
+          const merged = [...serverMsgs, ...localOnly];
+          setMessages(merged);
+          await saveMessagesLocally(merged);
+          setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 150);
+        }
       } catch {
-        // Offline or not signed in — the greeting stays and the user can still chat.
+        // Offline or not signed in — local cache already shown above
       }
     })();
     return () => {
@@ -245,15 +307,23 @@ export default function AiChatScreen() {
         text: reply,
         time: formatTime(createdAt),
       };
-      setMessages((prev) => [...prev, aiMsg]);
+      setMessages((prev) => {
+        const next = [...prev, aiMsg];
+        saveMessagesLocally(next);
+        return next;
+      });
     } catch (err) {
       const aiMsg: Message = {
-        id: `${Date.now() + 1}`,
+        id: `err_${Date.now() + 1}`,
         role: "assistant",
         text: getApiErrorMessage(err, "I couldn't reach the health assistant just now. Please try again in a moment."),
         time: formatTime(),
       };
-      setMessages((prev) => [...prev, aiMsg]);
+      setMessages((prev) => {
+        const next = [...prev, aiMsg];
+        saveMessagesLocally(next);
+        return next;
+      });
     } finally {
       setIsTyping(false);
       scrollToBottom();
@@ -322,7 +392,7 @@ export default function AiChatScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/(user)/home' as any)} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={BRAND_COLOR} />
         </TouchableOpacity>
 
@@ -342,9 +412,10 @@ export default function AiChatScreen() {
 
         <TouchableOpacity
           style={styles.moreBtn}
-          onPress={() =>
-            router.push({ pathname: '/(user)/ai-chat', params: { edit: '1' } } as any)
-          }
+          onPress={() => {
+            aiChatEditState.isEdit = true;
+            router.navigate('/(user)/ai-chat' as any);
+          }}
         >
           <Ionicons name="settings-outline" size={20} color={BRAND_COLOR} />
         </TouchableOpacity>

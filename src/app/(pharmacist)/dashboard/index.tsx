@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiErrorMessage } from '@/api/client';
+import { useAuth } from '../../../context/AuthContext';
 import { usePharmacistConsultations, usePharmacistDashboard } from '@/hooks/usePharmacistConsultations';
 import { usePharmacistProfile } from '@/hooks/usePharmacistProfile';
 import { useWallet } from '@/hooks/useWallet';
@@ -33,7 +34,17 @@ function formatRelativeTime(isoDate: string): string {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { profile, update: updateProfile } = usePharmacistProfile();
+  const { user } = useAuth();
+  const { profile, update: updateProfile, reload: reloadProfile } = usePharmacistProfile();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+      reloadProfile();
+    }, [reloadProfile])
+  );
+
   const dashboard = usePharmacistDashboard();
   const past = usePharmacistConsultations('past');
   const pendingActions = usePharmacistConsultations();
@@ -101,8 +112,8 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.push('/(pharmacist)/profile' as any)}>
-            {profile?.profileImage ? (
-              <Image source={{ uri: profile.profileImage }} style={styles.avatar} />
+            {profile?.profileImage || user?.profileImage ? (
+              <Image source={{ uri: (profile?.profileImage || user?.profileImage)! }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
                 <Ionicons name="person-outline" size={20} color="#0B1C5A" />
@@ -119,21 +130,13 @@ export default function DashboardScreen() {
             </View>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Switch
-            value={isAvailable}
-            onValueChange={handleToggleAvailability}
-            disabled={togglingAvailability || !profile}
-            trackColor={{ false: '#D1D5DB', true: '#10B981' }}
-            thumbColor={'#ffffff'}
-          />
-          <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
-            <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(pharmacist)/notifications' as any)}>
+          <Ionicons name="notifications-outline" size={24} color="#0B1C5A" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
+        ref={mainScrollRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -144,14 +147,59 @@ export default function DashboardScreen() {
           />
         }
       >
-        {!isAvailable && (
-          <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="information-circle" size={20} color="#EF4444" />
-            <Text style={{ color: '#B91C1C', fontSize: 13, flex: 1, fontWeight: '500' }}>
-              You are on vacation mode. You will not appear in searches or receive new consultation requests.
+        {/* Availability & Vacation Status Card */}
+        <View
+          style={{
+            backgroundColor: isAvailable ? '#F0FDF4' : '#FEF2F2',
+            borderColor: isAvailable ? '#DCFCE7' : '#FEE2E2',
+            borderWidth: 1,
+            borderRadius: 16,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            marginBottom: 18,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <Ionicons
+                name={isAvailable ? "radio-button-on" : "airplane"}
+                size={16}
+                color={isAvailable ? "#10B981" : "#EF4444"}
+              />
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '700',
+                  color: isAvailable ? '#065F46' : '#991B1B',
+                }}
+              >
+                {isAvailable ? 'Available for Consults' : 'Vacation Mode Active'}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontSize: 12,
+                color: isAvailable ? '#047857' : '#B91C1C',
+                lineHeight: 16,
+              }}
+            >
+              {isAvailable
+                ? 'Patients can view your profile and book consultations'
+                : 'Paused: You are hidden from search and new bookings'}
             </Text>
           </View>
-        )}
+          <Switch
+            value={isAvailable}
+            onValueChange={handleToggleAvailability}
+            disabled={togglingAvailability || !profile}
+            trackColor={{ false: '#FCA5A5', true: '#6EE7B7' }}
+            thumbColor={isAvailable ? '#10B981' : '#EF4444'}
+          />
+        </View>
 
         {/* Top Stats */}
         <View style={styles.statsRow}>

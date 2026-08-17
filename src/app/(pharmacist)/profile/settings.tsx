@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,8 +23,15 @@ import * as pharmacistService from '@/services/pharmacist.service';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { logout } = useAuth();
-  const { profile, update: updateProfile } = usePharmacistProfile();
+  const { logout, deleteAccount } = useAuth();
+  const { profile, update: updateProfile, reload: reloadProfile } = usePharmacistProfile();
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadProfile();
+    }, [reloadProfile])
+  );
+
   const [togglingAvailability, setTogglingAvailability] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -32,9 +39,33 @@ export default function SettingsScreen() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // Delete Account
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const handleLogout = async () => {
     await logout();
     router.replace('/(onboarding)/role-select' as any);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      setDeleteError('Please enter your password to confirm.');
+      return;
+    }
+    setDeleteError(null);
+    setDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+      setDeleteModalVisible(false);
+      router.replace('/(onboarding)/role-select' as any);
+    } catch (err) {
+      setDeleteError(getApiErrorMessage(err, 'Could not delete account. Please check your password.'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const isAvailable = profile ? !profile.vacationMode : true;
@@ -97,6 +128,21 @@ export default function SettingsScreen() {
         
 
 
+        {/* FINANCE & PAYOUTS */}
+        <Text style={styles.sectionHeader}>FINANCE & PAYOUTS</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.listItem}
+            onPress={() => router.push('/(pharmacist)/wallet/withdraw' as any)}
+          >
+            <View style={styles.listItemLeft}>
+              <Ionicons name="card-outline" size={20} color="#1E1B4B" />
+              <Text style={styles.listItemTitle}>Payout Bank Account</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
+
         {/* ACCOUNT SECURITY */}
         <Text style={styles.sectionHeader}>ACCOUNT SECURITY</Text>
         <View style={styles.card}>
@@ -133,8 +179,8 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <View style={styles.listItem}>
             <View style={styles.listItemLeft}>
-              <Ionicons name="calendar-outline" size={20} color="#1E1B4B" />
-              <Text style={styles.listItemTitle}>Available for Bookings</Text>
+              <Ionicons name="radio-button-on" size={20} color="#1E1B4B" />
+              <Text style={styles.listItemTitle}>Available for Consultations</Text>
             </View>
             <Switch
               value={isAvailable}
@@ -173,7 +219,74 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* DANGER ZONE */}
+        <Text style={[styles.sectionHeader, { color: '#DC2626' }]}>DANGER ZONE</Text>
+        <View style={[styles.card, { borderColor: '#FEE2E2', borderWidth: 1 }]}>
+          <TouchableOpacity style={styles.listItem} onPress={() => setDeleteModalVisible(true)}>
+            <View style={styles.listItemLeft}>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" />
+              <Text style={[styles.listItemTitle, { color: '#DC2626', fontWeight: '700' }]}>
+                Delete Account & Profile
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#FCA5A5" />
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="warning" size={24} color="#DC2626" />
+                <Text style={[styles.modalTitle, { color: '#DC2626' }]}>Delete Account</Text>
+              </View>
+              <Pressable onPress={() => setDeleteModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <Text style={{ fontSize: 13, color: '#64748B', lineHeight: 18, marginBottom: 16 }}>
+              Are you sure you want to delete your consultant profile? This will permanently erase your profile, consultations, and account data. This action cannot be reversed.
+            </Text>
+
+            <Text style={styles.modalLabel}>Confirm Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              secureTextEntry
+              value={deletePassword}
+              onChangeText={(text) => {
+                setDeletePassword(text);
+                setDeleteError(null);
+              }}
+              placeholder="Enter your current password"
+              placeholderTextColor="#94A3B8"
+            />
+
+            {deleteError && <Text style={styles.modalError}>{deleteError}</Text>}
+
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: '#DC2626', marginTop: 20 }, (deleting || !deletePassword) && { opacity: 0.6 }]}
+              onPress={handleDeleteAccount}
+              disabled={deleting || !deletePassword}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.modalBtnText}>Permanently Delete Account</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Change Password Modal */}
       <Modal

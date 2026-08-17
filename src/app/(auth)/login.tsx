@@ -1,5 +1,5 @@
 import { getApiErrorMessage } from "@/api/client";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -244,7 +244,11 @@ export default function LoginScreen() {
                 justifyContent: "center",
               }}
             >
-              <Text style={{ fontSize: 18 }}>{showPassword ? "🙈" : "👁️"}</Text>
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color="#6B7280"
+              />
             </Pressable>
           </View>
 

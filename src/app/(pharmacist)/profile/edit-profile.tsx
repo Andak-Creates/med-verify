@@ -430,8 +430,9 @@ export default function EditProfileScreen() {
           <View style={styles.availabilityHeader}>
             <Text style={styles.sectionTitle}>Availability & Hours</Text>
             <View style={[styles.vacationTag, vacationMode && { backgroundColor: '#FEF2F2' }]}>
+              {vacationMode && <Ionicons name="airplane-outline" size={14} color="#DC2626" style={{ marginRight: 4 }} />}
               <Text style={[styles.vacationText, vacationMode && { color: '#DC2626' }]}>
-                {vacationMode ? '🌴 On Vacation' : 'Vacation Mode'}
+                {vacationMode ? 'On Vacation' : 'Vacation Mode'}
               </Text>
               <Switch
                 value={vacationMode}

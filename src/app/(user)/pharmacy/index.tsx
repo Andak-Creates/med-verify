@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,13 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocation } from '@/hooks/useLocation';
 import { usePharmacists } from '@/hooks/usePharmacists';
 import { useNearbyPharmacies } from '@/hooks/useNearbyPharmacies';
+import { MedVerifyLogo } from '../../../components/MedVerifyLogo';
 import type { NearbyPharmacy, PublicPharmacist } from '@/types/api';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -27,11 +28,19 @@ const SEARCH_DEBOUNCE_MS = 400;
 export default function PharmacyScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
+
   const [activeTab, setActiveTab] = useState<'pharmacies' | 'pharmacists'>('pharmacies');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [availableOnly, setAvailableOnly] = useState(false);
-  const { coords, isLocating, requestLocation, clearLocation } = useLocation();
+  const { coords, isLocating, permissionDenied, requestLocation, openSettings, clearLocation, setCoords } = useLocation();
 
   useEffect(() => {
     const handle = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS);
@@ -72,7 +81,7 @@ export default function PharmacyScreen() {
       clearLocation();
       return;
     }
-    await requestLocation();
+    await requestLocation(true);
   };
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -185,52 +194,66 @@ export default function PharmacyScreen() {
     <TouchableOpacity
       key={p.placeId}
       style={styles.pharmacyCard}
-      activeOpacity={0.85}
+      activeOpacity={0.9}
       onPress={() => router.push(`/(user)/pharmacy/place/${encodeURIComponent(p.placeId)}` as any)}
     >
-      {/* Photo */}
-      {p.photoUrl ? (
-        <Image source={{ uri: p.photoUrl }} style={styles.pharmacyPhoto} resizeMode="cover" />
-      ) : (
-        <View style={styles.pharmacyPhotoFallback}>
-          <Ionicons name="storefront-outline" size={36} color="#312E81" />
-        </View>
-      )}
+      {/* Photo Container */}
+      <View style={styles.pharmacyPhotoWrap}>
+        {p.photoUrl ? (
+          <Image source={{ uri: p.photoUrl }} style={styles.pharmacyPhoto} resizeMode="cover" />
+        ) : (
+          <View style={styles.pharmacyPhotoFallback}>
+            <Ionicons name="storefront-outline" size={44} color="#0B1C5A" />
+          </View>
+        )}
 
-      {/* Open/Closed badge over photo */}
-      {p.isOpenNow !== null && (
-        <View style={[styles.openBadge, { backgroundColor: p.isOpenNow ? '#10B981' : '#EF4444' }]}>
-          <Text style={styles.openBadgeText}>{p.isOpenNow ? 'OPEN' : 'CLOSED'}</Text>
-        </View>
-      )}
+        {/* Floating Top Chips */}
+        <View style={styles.floatingTopRow}>
+          {p.isOpenNow !== null ? (
+            <View style={[styles.openBadge, { backgroundColor: p.isOpenNow ? '#10B981' : '#EF4444' }]}>
+              <View style={styles.openDot} />
+              <Text style={styles.openBadgeText}>{p.isOpenNow ? 'OPEN NOW' : 'CLOSED'}</Text>
+            </View>
+          ) : (
+            <View style={[styles.openBadge, { backgroundColor: '#475569' }]}>
+              <Text style={styles.openBadgeText}>VERIFIED</Text>
+            </View>
+          )}
 
-      <View style={styles.pharmacyBody}>
-        <View style={styles.pharmHeaderRow}>
-          <Text style={styles.pharmName} numberOfLines={1}>{p.name}</Text>
           {p.rating !== null && (
             <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#312E81" />
+              <Ionicons name="star" size={13} color="#F59E0B" />
               <Text style={styles.ratingText}>{p.rating.toFixed(1)}</Text>
+              {p.userRatingsTotal > 0 && (
+                <Text style={styles.ratingCount}>({p.userRatingsTotal})</Text>
+              )}
             </View>
           )}
         </View>
+      </View>
+
+      {/* Body Content */}
+      <View style={styles.pharmacyBody}>
+        <Text style={styles.pharmName} numberOfLines={2}>{p.name}</Text>
 
         <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={13} color="#6B7280" />
+          <Ionicons name="location-sharp" size={15} color="#0B1C5A" style={{ marginTop: 2 }} />
           <Text style={styles.locationText} numberOfLines={2}>{p.address || 'Address unavailable'}</Text>
         </View>
 
-        {p.userRatingsTotal > 0 && (
-          <Text style={styles.reviewCountText}>{p.userRatingsTotal.toLocaleString()} reviews</Text>
-        )}
+        {/* Divider */}
+        <View style={styles.cardDivider} />
 
+        {/* Footer Actions */}
         <View style={styles.pharmacyFooter}>
-          <View style={[styles.smallBadge, { backgroundColor: '#EEF1FB' }]}>
-            <Text style={[styles.smallBadgeText, { color: '#312E81' }]}>PHARMACY</Text>
+          <View style={styles.smallBadge}>
+            <Ionicons name="shield-checkmark" size={13} color="#0B1C5A" style={{ marginRight: 4 }} />
+            <Text style={styles.smallBadgeText}>PHARMACY</Text>
           </View>
+
           <View style={styles.viewBtn}>
             <Text style={styles.viewBtnText}>View Details</Text>
-            <Ionicons name="chevron-forward" size={14} color="#fff" />
+            <Ionicons name="arrow-forward" size={14} color="#fff" />
           </View>
         </View>
       </View>
@@ -240,20 +263,47 @@ export default function PharmacyScreen() {
   const renderPharmaciesContent = () => {
     if (!coords && !isLocating) {
       return (
-        <View style={styles.emptyState}>
-          <Ionicons name="location-outline" size={40} color="#312E81" />
-          <Text style={[styles.emptyStateText, { color: '#111827', fontWeight: '700', fontSize: 15, marginTop: 14 }]}>
-            Enable location to find pharmacies near you
+        <View style={styles.locationPromptCard}>
+          <View style={styles.locationIconWrap}>
+            <Ionicons name="navigate-circle" size={44} color="#0B1C5A" />
+          </View>
+
+          <Text style={styles.locationPromptTitle}>
+            {permissionDenied ? 'Location Permission Needed' : 'Find Pharmacies Near You'}
           </Text>
-          <Text style={[styles.emptyStateText, { marginTop: 6 }]}>
-            Tap the button below to share your location and see pharmacies in your area.
+
+          <Text style={styles.locationPromptSubtitle}>
+            {permissionDenied
+              ? 'Location access was declined. Open Settings to grant permission and locate pharmacies near your live coordinates.'
+              : 'Share your location to view verified pharmacies, opening hours, and real-time distances in your neighborhood.'}
           </Text>
-          <TouchableOpacity style={styles.enableLocationBtn} onPress={requestLocation} disabled={isLocating}>
-            {isLocating ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.enableLocationBtnText}>Enable Location</Text>
-            )}
+
+          {permissionDenied ? (
+            <TouchableOpacity style={styles.enableLocationBtn} onPress={openSettings} activeOpacity={0.85}>
+              <Ionicons name="settings-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.enableLocationBtnText}>Open Device Settings</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.enableLocationBtn}
+              onPress={() => requestLocation(true)}
+              disabled={isLocating}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="location" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.enableLocationBtnText}>Enable Location Access</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.defaultLocationBtn}
+            onPress={() => setCoords({ lat: 6.5244, lng: 3.3792 })}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="business-outline" size={16} color="#0B1C5A" style={{ marginRight: 6 }} />
+            <Text style={styles.defaultLocationBtnText}>
+              Or explore Lagos, Nigeria (Default)
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -281,6 +331,7 @@ export default function PharmacyScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
+        ref={mainScrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -293,7 +344,7 @@ export default function PharmacyScreen() {
       >
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={styles.logoText}>MedVerify</Text>
+          <MedVerifyLogo size="xs" showText={true} textColor="#0B1C5A" />
           <View style={styles.headerActions}>
             <Pressable style={styles.iconButton} onPress={() => router.push('/(user)/account/notifications' as any)}>
               <Ionicons name="notifications-outline" size={21} color="#0B1C5A" />
@@ -473,42 +524,246 @@ const styles = StyleSheet.create({
 
   /* Tab Content Shared */
   tabContent: { flex: 1 },
-  filterScroll: { flexGrow: 0, marginBottom: 8 },
-  filterRow: { alignItems: 'center', paddingHorizontal: 22, gap: 10 },
-  filterPill: { flexShrink: 0, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#E5E7EB' },
-  filterPillActive: { backgroundColor: '#312E81' },
+  filterScroll: { flexGrow: 0, marginBottom: 12 },
+  filterRow: { alignItems: 'center', paddingHorizontal: 16, gap: 10 },
+  filterPill: { flexShrink: 0, alignSelf: 'flex-start', paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20, backgroundColor: '#E5E7EB' },
+  filterPillActive: { backgroundColor: '#0B1C5A' },
   filterPillText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
   filterPillTextActive: { color: '#fff' },
-  cardList: { gap: 16, paddingHorizontal: 22 },
+  cardList: { gap: 18, paddingHorizontal: 16 },
+
+  /* Location Enable Card & Prompt */
+  locationPromptCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#0B1C5A',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+    marginVertical: 8,
+  },
+  locationIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#EEF1FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  locationPromptTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  locationPromptSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
+    marginBottom: 24,
+  },
+  enableLocationBtn: {
+    width: '100%',
+    height: 52,
+    backgroundColor: '#0B1C5A',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0B1C5A',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  enableLocationBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  defaultLocationBtn: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  defaultLocationBtnText: {
+    color: '#0B1C5A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 
   /* Empty / error states */
   emptyState: { paddingVertical: 40, alignItems: 'center', paddingHorizontal: 30 },
   emptyStateText: { marginTop: 12, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
-  enableLocationBtn: { marginTop: 20, backgroundColor: '#312E81', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24 },
-  enableLocationBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  /* Nearby Pharmacy Cards */
-  pharmacyCard: { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-  pharmacyPhoto: { width: '100%', height: 160 },
-  pharmacyPhotoFallback: { width: '100%', height: 160, backgroundColor: '#EEF1FB', alignItems: 'center', justifyContent: 'center' },
-  openBadge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  openBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  pharmacyBody: { padding: 16 },
-  pharmHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  pharmName: { fontSize: 17, fontWeight: '800', color: '#111827', flex: 1, paddingRight: 8 },
-  locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 8 },
-  locationText: { fontSize: 12, color: '#6B7280', flex: 1, lineHeight: 18 },
-  reviewCountText: { fontSize: 11, color: '#9CA3AF', marginBottom: 12 },
-  ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EEF1FB', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  ratingText: { fontSize: 12, fontWeight: '700', color: '#312E81' },
-  pharmacyFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  smallBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  smallBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#312E81', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20 },
-  viewBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  /* Nearby Pharmacy Cards (Expansive, High Visual Impact) */
+  pharmacyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#0B1C5A',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  pharmacyPhotoWrap: {
+    width: '100%',
+    height: 180,
+    position: 'relative',
+    backgroundColor: '#E2E8F0',
+  },
+  pharmacyPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  pharmacyPhotoFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#EEF1FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingTopRow: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  openBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  openDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+    marginRight: 5,
+  },
+  openBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  ratingCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  pharmacyBody: {
+    padding: 18,
+  },
+  pharmName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginBottom: 14,
+  },
+  locationText: {
+    fontSize: 13,
+    color: '#4B5563',
+    flex: 1,
+    lineHeight: 19,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 14,
+  },
+  pharmacyFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  smallBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF1FB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  smallBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0B1C5A',
+    letterSpacing: 0.5,
+  },
+  viewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0B1C5A',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#0B1C5A',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  viewBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 
   /* Pharmacist Cards */
-  docCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  docCard: { backgroundColor: '#fff', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   docHeaderRow: { flexDirection: 'row', marginBottom: 16 },
   docAvatarWrap: { position: 'relative', marginRight: 16 },
   docAvatarImg: { width: 72, height: 72, borderRadius: 16, backgroundColor: '#F3F4F6' },
@@ -519,6 +774,6 @@ const styles = StyleSheet.create({
   docMetaText: { fontSize: 11, color: '#6B7280', marginLeft: 2 },
   docFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   reviewCount: { fontSize: 12, color: '#6B7280', lineHeight: 16 },
-  actionBtn: { flex: 1, marginLeft: 16, backgroundColor: '#312E81', height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  actionBtn: { flex: 1, marginLeft: 16, backgroundColor: '#0B1C5A', height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

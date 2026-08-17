@@ -93,7 +93,6 @@ export default function RootLayout() {
           <Stack
             screenOptions={{
               contentStyle: { backgroundColor: "transparent" },
-              cardStyle: { backgroundColor: "transparent" },
               headerShown: false,
               animation: "fade",
             }}

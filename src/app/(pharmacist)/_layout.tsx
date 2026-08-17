@@ -31,6 +31,7 @@ export default function PharmacistLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Tabs
+        backBehavior="history"
         tabBar={(props) => <CustomTabBar {...props} />}
         screenLayout={({ children }) => (
           <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
