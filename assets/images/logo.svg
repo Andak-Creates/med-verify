@@ -1,0 +1,7 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Minimal Dark Navy Squircle -->
+  <rect width="512" height="512" rx="128" fill="#0B1C5A"/>
+  
+  <!-- Single Ultra-Clean Precision V-Checkmark -->
+  <path d="M160 256 L230 326 L352 186" stroke="#00C6FF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
