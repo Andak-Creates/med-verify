@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportDrug } from '@/services/drugs.service';
 import { useLanguage } from '@/i18n';
@@ -152,7 +153,7 @@ export default function ReportScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Step 0: Drug Details */}
           {step === 0 && (
-            <View style={styles.card}>
+            <Animated.View entering={FadeInDown.springify()} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="medkit-outline" size={18} color={BRAND} />
                 <Text style={styles.cardTitleText}>{t.report.stepDrug}</Text>
@@ -184,12 +185,12 @@ export default function ReportScreen() {
                 value={nafdacNo}
                 onChangeText={setNafdacNo}
               />
-            </View>
+            </Animated.View>
           )}
 
           {/* Step 1: Pharmacy Details */}
           {step === 1 && (
-            <View style={styles.card}>
+            <Animated.View entering={FadeInDown.springify()} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="storefront-outline" size={18} color={BRAND} />
                 <Text style={styles.cardTitleText}>{t.report.stepPharmacy}</Text>
@@ -228,12 +229,12 @@ export default function ReportScreen() {
                   </View>
                 )}
               </Pressable>
-            </View>
+            </Animated.View>
           )}
 
           {/* Step 2: Reason & Description */}
           {step === 2 && (
-            <View style={styles.card}>
+            <Animated.View entering={FadeInDown.springify()} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="warning-outline" size={18} color={BRAND} />
                 <Text style={styles.cardTitleText}>{t.report.reasonLabel}</Text>
@@ -275,12 +276,12 @@ export default function ReportScreen() {
                 onChangeText={setComments}
                 multiline
               />
-            </View>
+            </Animated.View>
           )}
 
           {/* Step 3: Review & Submit */}
           {step === 3 && (
-            <View style={styles.card}>
+            <Animated.View entering={FadeInDown.springify()} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="clipboard-outline" size={18} color={BRAND} />
                 <Text style={styles.cardTitleText}>{t.report.stepReview}</Text>
@@ -315,7 +316,7 @@ export default function ReportScreen() {
                   <Image source={{ uri: receiptImage }} style={[styles.receiptPreview, { marginTop: 6 }]} />
                 </View>
               )}
-            </View>
+            </Animated.View>
           )}
 
           {/* Actions */}

@@ -19,7 +19,7 @@ import { useLanguage } from "@/i18n";
 
 export default function ScanOcrScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isPro, scanCount, incrementScanCount } = useAuth();
   const { t } = useLanguage();
   const [permission, requestPermission] = useCameraPermissions();
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -29,17 +29,25 @@ export default function ScanOcrScreen() {
   useFocusEffect(
     useCallback(() => {
       setScanning(false);
-    }, [])
+      if (!isPro && scanCount >= 3) {
+        router.replace('/(user)/account/paywall' as any);
+      }
+    }, [isPro, scanCount])
   );
 
   const handleCapture = async () => {
     if (scanning || !cameraRef.current) return;
+    if (!isPro && scanCount >= 3) {
+      router.replace('/(user)/account/paywall' as any);
+      return;
+    }
     setScanning(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
       if (!photo?.uri) throw new Error('Failed to capture image');
 
       const result = await scanDrugImage(photo.uri);
+      incrementScanCount();
       router.push({
         pathname: "/(user)/home/result",
         params: { code: result.extractedNafdac, result: JSON.stringify(result) },

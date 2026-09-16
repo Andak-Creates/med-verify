@@ -1,8 +1,11 @@
+import { useEffect, useRef } from "react";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import { Stack, ThemeProvider, DefaultTheme } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AuthProvider } from "../context/AuthContext";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+import { setupAppleIap, teardownAppleIap } from "@/services/appleIap.service";
 import { LanguageProvider } from "../i18n";
 import * as SystemUI from "expo-system-ui";
 import "../global.css";
@@ -31,10 +34,36 @@ Notifications.setNotificationHandler({
 // For OAuth completion
 WebBrowser.maybeCompleteAuthSession();
 
+function AppleIapBootstrap() {
+  const { refreshProfile } = useAuth();
+  const refreshRef = useRef(refreshProfile);
+  refreshRef.current = refreshProfile;
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    setupAppleIap(
+      async () => {
+        try {
+          await refreshRef.current();
+        } catch {
+          // Ignore
+        }
+      },
+      () => {},
+    );
+    return () => {
+      teardownAppleIap();
+    };
+  }, []);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <LanguageProvider>
       <AuthProvider>
+        <AppleIapBootstrap />
         <SafeAreaProvider style={{ flex: 1, backgroundColor: 'transparent' }}>
           <ThemeProvider value={transparentTheme}>
             <Stack

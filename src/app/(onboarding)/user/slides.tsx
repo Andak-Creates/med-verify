@@ -17,11 +17,10 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { useLanguage } from '@/i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ─── Illustration: Slide 1 (Verify Drugs) ────────────────────────────────────
+// ─── Illustration: Slide 1 ─────────────────────────────────────────────────
 function Slide1Illustration() {
   return (
     <View style={{ width: '100%', height: 280, borderRadius: 24, overflow: 'hidden' }}>
@@ -30,6 +29,7 @@ function Slide1Illustration() {
         style={{ width: '100%', height: '100%' }}
         resizeMode="cover"
       />
+      {/* Badge top right */}
       <View style={{
         position: 'absolute', top: 14, right: 14,
         width: 44, height: 44, borderRadius: 12,
@@ -50,80 +50,158 @@ function Slide1Illustration() {
   );
 }
 
-// ─── Illustration: Slide 2 (Report Counterfeits) ─────────────────────────────
+// ─── Illustration: Slide 2 ─────────────────────────────────────────────────
 function Slide2Illustration() {
   return (
-    <View style={{
-      width: '100%', height: 280, borderRadius: 24, overflow: 'hidden',
-      backgroundColor: '#0B1C5A', alignItems: 'center', justifyContent: 'center',
-      padding: 24,
-    }}>
+    <View style={{ width: '100%', height: 280, borderRadius: 24, overflow: 'hidden' }}>
+      <Image
+        source={require('../../../../assets/images/slide2-consult-experts.png')}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="cover"
+      />
+      {/* Verified Experts badge */}
       <View style={{
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-        borderWidth: 2, borderColor: '#ef4444',
-        alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+        position: 'absolute', top: 14, left: 14,
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        borderRadius: 50, paddingHorizontal: 12, paddingVertical: 6,
+        shadowColor: '#000', shadowOpacity: 0.1,
+        shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+        gap: 6,
       }}>
-        <Ionicons name="shield-outline" size={42} color="#fca5a5" />
+        <Ionicons name="shield-checkmark" size={14} color="#0b1c5a" />
+        <Text style={{ fontSize: 12, fontWeight: '700', color: '#0b1c5a' }}>Verified Experts</Text>
       </View>
+    </View>
+  );
+}
+
+// ─── Illustration: Slide 3 ─────────────────────────────────────────────────
+function Slide3Illustration() {
+  return (
+    <View style={{
+      width: '100%',
+      backgroundColor: 'rgba(255,255,255,0.92)',
+      borderRadius: 24,
+      overflow: 'hidden',
+      shadowColor: '#000', shadowOpacity: 0.1,
+      shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    }}>
+      {/* Chat Header */}
       <View style={{
-        backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16,
-        paddingHorizontal: 16, paddingVertical: 10, width: '100%',
-        flexDirection: 'row', alignItems: 'center', gap: 12,
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, paddingVertical: 12,
+        borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
       }}>
-        <Ionicons name="flag" size={20} color="#f87171" />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Direct Safety Reporting</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Flag suspicious & expired batches</Text>
+        {/* AI Avatar */}
+        <View style={{
+          width: 40, height: 40, borderRadius: 20,
+          backgroundColor: '#0b1c5a',
+          alignItems: 'center', justifyContent: 'center',
+          marginRight: 10,
+        }}>
+          <Ionicons name="sparkles" size={18} color="#fff" />
+        </View>
+        <View>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>MedVerify AI</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#16a34a' }} />
+            <Text style={{ fontSize: 11, color: '#6b7280' }}>Online 24/7</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Chat messages */}
+      <View style={{ padding: 14, gap: 10 }}>
+        {/* User message */}
+        <View style={{ alignItems: 'flex-end' }}>
+          <View style={{
+            backgroundColor: '#0b1c5a',
+            borderRadius: 18, borderBottomRightRadius: 4,
+            paddingHorizontal: 14, paddingVertical: 10,
+            maxWidth: '82%',
+          }}>
+            <Text style={{ color: '#fff', fontSize: 13, lineHeight: 19 }}>
+              Can I take Ibuprofen with my{'\n'}prescription Lisinopril?
+            </Text>
+          </View>
+          <Text style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, marginRight: 2 }}>10:24 AM</Text>
+        </View>
+
+        {/* AI response */}
+        <View style={{ alignItems: 'flex-start' }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 18, borderBottomLeftRadius: 4,
+            paddingHorizontal: 14, paddingVertical: 10,
+            maxWidth: '88%',
+            borderWidth: 1, borderColor: '#e5e7eb',
+          }}>
+            <Text style={{ color: '#111827', fontSize: 13, lineHeight: 19 }}>
+              I've checked your records. Ibuprofen can potentially reduce the effectiveness of Lisinopril. Consult your doctor.
+            </Text>
+          </View>
+          <Text style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, marginLeft: 2 }}>10:24 AM</Text>
+        </View>
+      </View>
+
+      {/* Input bar */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center',
+        marginHorizontal: 14, marginBottom: 14,
+        backgroundColor: '#f3f4f6',
+        borderRadius: 50, paddingHorizontal: 14, paddingVertical: 10,
+      }}>
+        <Ionicons name="chatbox-outline" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
+        <Text style={{ flex: 1, fontSize: 13, color: '#9ca3af' }}>Ask anything...</Text>
+        <View style={{
+          width: 28, height: 28, borderRadius: 14,
+          backgroundColor: '#0b1c5a',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Ionicons name="send" size={12} color="#fff" />
         </View>
       </View>
     </View>
   );
 }
 
-// ─── Illustration: Slide 3 (Multi-Language) ──────────────────────────────────
-function Slide3Illustration() {
-  return (
-    <View style={{
-      width: '100%', height: 280, borderRadius: 24, overflow: 'hidden',
-      backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
-      padding: 20,
-    }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-        {[
-          { flag: '🇬🇧', label: 'English' },
-          { flag: '🇫🇷', label: 'Français' },
-          { flag: '🇳🇬', label: 'Hausa' },
-          { flag: '🇳🇬', label: 'Yorùbá' },
-          { flag: '🇳🇬', label: 'Igbo' },
-          { flag: '🇪🇸', label: 'Español' },
-          { flag: '🇸🇦', label: 'العربية' },
-        ].map((item, idx) => (
-          <View
-            key={idx}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 6,
-              backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 8,
-              borderRadius: 20, shadowColor: '#000', shadowOpacity: 0.05,
-              shadowRadius: 4, elevation: 2,
-            }}
-          >
-            <Text style={{ fontSize: 16 }}>{item.flag}</Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#0B1C5A' }}>{item.label}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
+// ─── Slides Data ───────────────────────────────────────────────────────────
+const SLIDES = [
+  {
+    id: '1',
+    Illustration: Slide1Illustration,
+    title: 'Verify your drugs\ninstantly',
+    description:
+      'Scan QR codes, barcodes, or packaging to verify the authenticity of your medication in seconds.',
+  },
+  {
+    id: '2',
+    Illustration: Slide2Illustration,
+    title: 'Find & Consult\nExperts',
+    description:
+      'Locate verified pharmacies nearby and book professional consultations with licensed pharmacists at your convenience.',
+  },
+  {
+    id: '3',
+    Illustration: Slide3Illustration,
+    title: 'Your Health\nCompanion',
+    description:
+      'Get 24/7 AI-powered health advice, check drug interactions, and find nearby verified pharmacies.',
+  },
+];
 
-// ─── Native 120 FPS UI-Thread Pagination Dot ──────────────────────────────────
+// ─── Native 120 FPS UI-Thread Pagination Dot ───────────────────────────────────────────
 function PaginationDot({ index, scrollX }: { index: number; scrollX: SharedValue<number> }) {
   const animatedStyle = useAnimatedStyle(() => {
     const inputRange = [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH];
     const width = interpolate(scrollX.value, inputRange, [8, 28, 8], Extrapolation.CLAMP);
     const opacity = interpolate(scrollX.value, inputRange, [0.35, 1, 0.35], Extrapolation.CLAMP);
-    return { width, opacity };
+    return {
+      width,
+      opacity,
+    };
   });
 
   return (
@@ -141,34 +219,43 @@ function PaginationDot({ index, scrollX }: { index: number; scrollX: SharedValue
   );
 }
 
+// ─── Slide Item ────────────────────────────────────────────────────────────
+const SlideItem = React.memo(function SlideItem({ item }: { item: (typeof SLIDES)[0] }) {
+  const { Illustration } = item;
+
+  return (
+    <View
+      style={{
+        width: SCREEN_WIDTH,
+        paddingHorizontal: 24,
+        paddingTop: 52,
+      }}
+    >
+      <Illustration />
+      <Text style={{
+        fontSize: 34, fontWeight: '800', color: '#0b1c5a',
+        textAlign: 'center', lineHeight: 42,
+        marginTop: 36, marginBottom: 14,
+      }}>
+        {item.title}
+      </Text>
+      <Text style={{
+        fontSize: 16, color: '#374151', textAlign: 'center',
+        lineHeight: 25, paddingHorizontal: 8,
+      }}>
+        {item.description}
+      </Text>
+    </View>
+  );
+});
+
 // ─── Main Screen ───────────────────────────────────────────────────────────
 export default function SlidesScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<Animated.FlatList<any>>(null);
-  const scrollX = useSharedValue(0);
 
-  const slides = [
-    {
-      id: '1',
-      Illustration: Slide1Illustration,
-      title: t.onboarding.slide1Title,
-      description: t.onboarding.slide1Desc,
-    },
-    {
-      id: '2',
-      Illustration: Slide2Illustration,
-      title: t.onboarding.slide2Title,
-      description: t.onboarding.slide2Desc,
-    },
-    {
-      id: '3',
-      Illustration: Slide3Illustration,
-      title: t.onboarding.slide3Title,
-      description: t.onboarding.slide3Desc,
-    },
-  ];
+  const scrollX = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -185,10 +272,10 @@ export default function SlidesScreen() {
   ).current;
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
-  const isLastSlide = currentIndex === slides.length - 1;
+  const isLastSlide = currentIndex === SLIDES.length - 1;
 
   const goToNext = () => {
-    if (currentIndex < slides.length - 1) {
+    if (currentIndex < SLIDES.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
     } else {
       router.push('/(onboarding)/user/sign-up' as any);
@@ -200,10 +287,11 @@ export default function SlidesScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      {/* Native 120 FPS Animated FlatList */}
       <Animated.FlatList
         ref={flatListRef}
-        data={slides}
+        data={SLIDES}
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
@@ -220,34 +308,14 @@ export default function SlidesScreen() {
         initialNumToRender={3}
         maxToRenderPerBatch={3}
         windowSize={3}
-        renderItem={({ item }) => {
-          const { Illustration } = item;
-          return (
-            <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, paddingTop: 52 }}>
-              <Illustration />
-              <Text style={{
-                fontSize: 30, fontWeight: '800', color: '#0b1c5a',
-                textAlign: 'center', lineHeight: 38,
-                marginTop: 36, marginBottom: 14,
-              }}>
-                {item.title}
-              </Text>
-              <Text style={{
-                fontSize: 15, color: '#374151', textAlign: 'center',
-                lineHeight: 23, paddingHorizontal: 8,
-              }}>
-                {item.description}
-              </Text>
-            </View>
-          );
-        }}
+        renderItem={({ item }) => <SlideItem item={item} />}
       />
 
       {/* Bottom Controls */}
       <View style={{ paddingHorizontal: 24, paddingBottom: 44, paddingTop: 16 }}>
         {/* Pagination */}
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 24 }}>
-          {slides.map((_, i) => (
+          {SLIDES.map((_, i) => (
             <PaginationDot key={i} index={i} scrollX={scrollX} />
           ))}
         </View>
@@ -264,6 +332,11 @@ export default function SlidesScreen() {
             justifyContent: 'center',
             gap: 8,
             opacity: pressed ? 0.85 : 1,
+            shadowColor: '#0b1c5a',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 10,
+            elevation: 4,
           })}
         >
           <Text style={{
@@ -271,12 +344,12 @@ export default function SlidesScreen() {
             letterSpacing: isLastSlide ? 1.5 : 0,
             textTransform: isLastSlide ? 'uppercase' : 'none',
           }}>
-            {isLastSlide ? t.onboarding.getStarted : t.onboarding.next}
+            {isLastSlide ? 'Get Started' : 'Next'}
           </Text>
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>→</Text>
         </Pressable>
 
-        {/* Skip */}
+        {/* Skip / AES badge */}
         {!isLastSlide ? (
           <Pressable
             onPress={skip}
@@ -289,7 +362,7 @@ export default function SlidesScreen() {
               color: '#0b1c5a', fontWeight: '700',
               fontSize: 12, letterSpacing: 2, textTransform: 'uppercase',
             }}>
-              {t.onboarding.skip}
+              SKIP
             </Text>
           </Pressable>
         ) : (
@@ -305,7 +378,7 @@ export default function SlidesScreen() {
             <Text style={{
               fontSize: 10, fontWeight: '700', color: '#0b1c5a', letterSpacing: 2,
             }}>
-              OFFICIAL DRUG REGISTRY
+              AES-256 ENCRYPTED
             </Text>
           </View>
         )}

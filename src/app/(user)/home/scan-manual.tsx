@@ -14,11 +14,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../../context/AuthContext";
 import { useLanguage } from "@/i18n";
 
 export default function ScanManualScreen() {
   const router = useRouter();
+  const { user, isPro, scanCount, incrementScanCount } = useAuth();
   const { t } = useLanguage();
   const [nafdacCode, setNafdacCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,15 +29,23 @@ export default function ScanManualScreen() {
   useFocusEffect(
     useCallback(() => {
       setLoading(false);
-    }, []),
+      if (!isPro && scanCount >= 3) {
+        router.replace('/(user)/account/paywall' as any);
+      }
+    }, [isPro, scanCount])
   );
 
   const handleVerify = async () => {
     const code = nafdacCode.trim();
     if (!code) return;
+    if (!isPro && scanCount >= 3) {
+      router.replace('/(user)/account/paywall' as any);
+      return;
+    }
     setLoading(true);
     try {
       const result = await verifyDrug(code);
+      incrementScanCount();
       router.push({
         pathname: "/(user)/home/result",
         params: {
@@ -114,7 +125,10 @@ export default function ScanManualScreen() {
 
           <View style={{ paddingHorizontal: 24 }}>
             {/* Icon + Subtitle */}
-            <View style={{ alignItems: "center", marginBottom: 28, marginTop: 10 }}>
+            <Animated.View
+              entering={FadeInDown.delay(100).springify()}
+              style={{ alignItems: "center", marginBottom: 28, marginTop: 10 }}
+            >
               <View
                 style={{
                   width: 72,
@@ -150,10 +164,11 @@ export default function ScanManualScreen() {
               >
                 {t.scanner.manualSubtitle}
               </Text>
-            </View>
+            </Animated.View>
 
             {/* Input Card */}
-            <View
+            <Animated.View
+              entering={FadeInDown.delay(200).springify()}
               style={{
                 backgroundColor: "#fff",
                 borderRadius: 20,
@@ -213,10 +228,10 @@ export default function ScanManualScreen() {
                   {loading ? t.common.loading : t.scanner.verifyBtn}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
 
             {/* Quick Examples */}
-            <View>
+            <Animated.View entering={FadeInDown.delay(300).springify()}>
               <Text
                 style={{
                   fontSize: 12,
@@ -257,7 +272,7 @@ export default function ScanManualScreen() {
                   </Pressable>
                 ))}
               </View>
-            </View>
+            </Animated.View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

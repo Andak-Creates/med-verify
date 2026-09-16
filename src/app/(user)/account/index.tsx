@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -37,7 +38,7 @@ const BLOOD_GROUPS = [
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { user, logout, updateProfile, uploadAvatar } = useAuth();
+  const { user, logout, updateProfile, uploadAvatar, isPro } = useAuth();
   const { t, language, setLanguage, languages, currentLanguageOption } = useLanguage();
   const mainScrollRef = useRef<ScrollView>(null);
 
@@ -180,7 +181,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             {user?.profileImage ? (
               <Image source={{ uri: user.profileImage }} style={styles.avatarImg} />
@@ -204,143 +205,209 @@ export default function AccountScreen() {
           <Text style={styles.userName}>{displayName}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
 
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: isPro ? '#FFFBEB' : '#F1F5F9',
+              borderWidth: 1,
+              borderColor: isPro ? '#FDE68A' : '#E2E8F0',
+              paddingHorizontal: 14,
+              paddingVertical: 7,
+              borderRadius: 20,
+              marginTop: 10,
+              marginBottom: 16,
+            }}
+            onPress={() => router.push(isPro ? '/(user)/account/subscription' : '/(user)/account/paywall' as any)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={isPro ? "diamond" : "star-outline"} size={14} color={isPro ? "#D97706" : "#64748B"} />
+            <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '800', color: isPro ? "#D97706" : "#475569", letterSpacing: 0.5 }}>
+              {isPro ? "PRO MEMBER" : "BASIC PLAN"}
+            </Text>
+            <Ionicons name="chevron-forward" size={13} color={isPro ? "#D97706" : "#94A3B8"} style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.editBtn} onPress={openEdit}>
             <Text style={styles.editBtnText}>{t.account.editProfile}</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         {/* Language Selection Card */}
-        <Text style={styles.sectionTitle}>{t.account.language}</Text>
-        <View style={styles.cardGroup}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => setLangModalVisible(true)}
-          >
-            <View style={styles.menuIconWrap}>
-              <Ionicons name="globe-outline" size={20} color="#0B1C5A" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{t.account.language}</Text>
-              <Text style={styles.menuSub}>
-                {currentLanguageOption.flag} {currentLanguageOption.label} ({currentLanguageOption.nativeName})
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        </View>
+        <Animated.View entering={FadeInDown.delay(180).springify()}>
+          <Text style={styles.sectionTitle}>{t.account.language}</Text>
+          <View style={styles.cardGroup}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => setLangModalVisible(true)}
+            >
+              <View style={styles.menuIconWrap}>
+                <Ionicons name="globe-outline" size={20} color="#0B1C5A" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>{t.account.language}</Text>
+                <Text style={styles.menuSub}>
+                  {currentLanguageOption.flag} {currentLanguageOption.label} ({currentLanguageOption.nativeName})
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Billing & Subscription */}
+        <Animated.View entering={FadeInDown.delay(220).springify()}>
+          <Text style={styles.sectionTitle}>Billing & Subscription</Text>
+          <View style={styles.cardGroup}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push(isPro ? '/(user)/account/subscription' : '/(user)/account/paywall' as any)}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isPro ? '#FFFBEB' : '#EFF6FF' }]}>
+                <Ionicons name={isPro ? "diamond" : "diamond-outline"} size={20} color={isPro ? "#D97706" : "#2563EB"} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Subscription Plan</Text>
+                <Text style={styles.menuSub}>{isPro ? "MedVerify Pro • Active" : "Basic Free Plan • 3 Scans Limit"}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+            {Platform.OS !== 'ios' && (
+              <>
+                <View style={styles.divider} />
+                <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(user)/account/payment-methods' as any)}>
+                  <View style={styles.menuIconWrap}>
+                    <Ionicons name="card-outline" size={20} color="#0B1C5A" />
+                  </View>
+                  <View style={styles.menuContent}>
+                    <Text style={styles.menuTitle}>Payment Methods</Text>
+                    <Text style={styles.menuSub}>View, add or manage cards</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </Animated.View>
 
         {/* Medical Profile Section */}
-        <Text style={styles.sectionTitle}>{t.account.medicalProfile}</Text>
-        <View style={styles.cardGroup}>
-          <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
-            <View style={styles.menuIconWrap}>
-              <Ionicons name="water-outline" size={20} color="#0B1C5A" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{t.account.bloodGroup}</Text>
-              <Text style={styles.menuSub}>
-                {user?.bloodGroup || t.account.notSet}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
-            <View style={styles.menuIconWrap}>
-              <Ionicons name="warning-outline" size={20} color="#0B1C5A" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{t.account.allergies}</Text>
-              <Text style={styles.menuSub}>
-                {user?.allergies || t.account.noneReported}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
-            <View style={styles.menuIconWrap}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={20}
-                color="#0B1C5A"
-              />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{t.account.chronicConditions}</Text>
-              <Text style={styles.menuSub}>
-                {user?.chronicConditions || t.account.noneReported}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        </View>
+        <Animated.View entering={FadeInDown.delay(260).springify()}>
+          <Text style={styles.sectionTitle}>{t.account.medicalProfile}</Text>
+          <View style={styles.cardGroup}>
+            <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
+              <View style={styles.menuIconWrap}>
+                <Ionicons name="water-outline" size={20} color="#0B1C5A" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>{t.account.bloodGroup}</Text>
+                <Text style={styles.menuSub}>
+                  {user?.bloodGroup || t.account.notSet}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
+              <View style={styles.menuIconWrap}>
+                <Ionicons name="warning-outline" size={20} color="#0B1C5A" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>{t.account.allergies}</Text>
+                <Text style={styles.menuSub}>
+                  {user?.allergies || t.account.noneReported}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.menuItem} onPress={openEdit}>
+              <View style={styles.menuIconWrap}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={20}
+                  color="#0B1C5A"
+                />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>{t.account.chronicConditions}</Text>
+                <Text style={styles.menuSub}>
+                  {user?.chronicConditions || t.account.noneReported}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
 
         {/* Security & Preferences */}
-        <Text style={styles.sectionTitle}>{t.account.appSettings}</Text>
-        <View style={styles.cardGroup}>
-          <View style={styles.menuItem}>
-            <View style={styles.menuIconWrap}>
-              <Ionicons name="finger-print-outline" size={20} color="#0B1C5A" />
+        <Animated.View entering={FadeInDown.delay(340).springify()}>
+          <Text style={styles.sectionTitle}>{t.account.appSettings}</Text>
+          <View style={styles.cardGroup}>
+            <View style={styles.menuItem}>
+              <View style={styles.menuIconWrap}>
+                <Ionicons name="finger-print-outline" size={20} color="#0B1C5A" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>{t.account.biometrics}</Text>
+                <Text style={styles.menuSub}>{t.account.biometricsSub}</Text>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={setBiometricEnabled}
+                trackColor={{ false: "#E5E7EB", true: "#0B1C5A" }}
+              />
             </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{t.account.biometrics}</Text>
-              <Text style={styles.menuSub}>{t.account.biometricsSub}</Text>
+            <View style={styles.divider} />
+            <View style={styles.menuItem}>
+              <View style={styles.menuIconWrap}>
+                <Ionicons name="notifications-outline" size={20} color="#0B1C5A" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>{t.account.notifications}</Text>
+                <Text style={styles.menuSub}>{t.account.notificationsSub}</Text>
+              </View>
+              <Switch
+                value={notifEnabled}
+                onValueChange={setNotifEnabled}
+                trackColor={{ false: "#E5E7EB", true: "#0B1C5A" }}
+              />
             </View>
-            <Switch
-              value={biometricEnabled}
-              onValueChange={setBiometricEnabled}
-              trackColor={{ false: "#E5E7EB", true: "#0B1C5A" }}
-            />
           </View>
-          <View style={styles.divider} />
-          <View style={styles.menuItem}>
-            <View style={styles.menuIconWrap}>
-              <Ionicons name="notifications-outline" size={20} color="#0B1C5A" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{t.account.notifications}</Text>
-              <Text style={styles.menuSub}>{t.account.notificationsSub}</Text>
-            </View>
-            <Switch
-              value={notifEnabled}
-              onValueChange={setNotifEnabled}
-              trackColor={{ false: "#E5E7EB", true: "#0B1C5A" }}
-            />
-          </View>
-        </View>
+        </Animated.View>
 
         {/* Account Actions */}
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.cardGroup}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/(user)/account/delete-account' as any)}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: '#FEF2F2' }]}>
-              <Ionicons name="trash-outline" size={20} color="#DC2626" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={[styles.menuTitle, { color: '#DC2626' }]}>{t.account.deleteAccount}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleSignOut}
-            disabled={signingOut}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: '#F1F5F9' }]}>
-              <Ionicons name="log-out-outline" size={20} color="#475569" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={[styles.menuTitle, { color: '#475569' }]}>
-                {signingOut ? t.common.loading : t.common.signOut}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        <Animated.View entering={FadeInDown.delay(420).springify()}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.cardGroup}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/(user)/account/delete-account' as any)}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={[styles.menuTitle, { color: '#DC2626' }]}>{t.account.deleteAccount}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleSignOut}
+              disabled={signingOut}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: '#F1F5F9' }]}>
+                <Ionicons name="log-out-outline" size={20} color="#475569" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={[styles.menuTitle, { color: '#475569' }]}>
+                  {signingOut ? t.common.loading : t.common.signOut}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
 
         {/* Version info */}
         <View style={styles.versionRow}>

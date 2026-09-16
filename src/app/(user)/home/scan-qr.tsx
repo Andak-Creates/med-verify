@@ -20,7 +20,7 @@ import { useLanguage } from "@/i18n";
 
 export default function ScanQrScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isPro, scanCount, incrementScanCount } = useAuth();
   const { t } = useLanguage();
   const [permission, requestPermission] = useCameraPermissions();
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -29,7 +29,10 @@ export default function ScanQrScreen() {
   useFocusEffect(
     useCallback(() => {
       setScanned(false);
-    }, [])
+      if (!isPro && scanCount >= 3) {
+        router.replace('/(user)/account/paywall' as any);
+      }
+    }, [isPro, scanCount])
   );
 
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -55,9 +58,14 @@ export default function ScanQrScreen() {
 
   const handleBarCodeScanned = async ({ data }: { type: string; data: string }) => {
     if (scanned) return;
+    if (!isPro && scanCount >= 3) {
+      router.replace('/(user)/account/paywall' as any);
+      return;
+    }
     setScanned(true);
     try {
       const result = await verifyDrug(data.trim());
+      incrementScanCount();
       router.push({
         pathname: "/(user)/home/result",
         params: { code: data.trim(), result: JSON.stringify(result) },

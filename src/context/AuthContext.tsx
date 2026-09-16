@@ -1,3 +1,4 @@
+import * as SecureStore from 'expo-secure-store';
 import React, {
   createContext,
   useCallback,
@@ -9,6 +10,8 @@ import React, {
 import { clearToken, getToken, onSessionExpired, setToken as persistToken } from '@/api/tokenManager';
 import * as authService from '@/services/auth.service';
 import * as usersService from '@/services/users.service';
+import * as paymentsService from '@/services/payments.service';
+import * as drugsService from '@/services/drugs.service';
 import { registerForPushNotifications } from '@/utils/notifications';
 import type {
   AuthSession,
@@ -37,6 +40,12 @@ interface AuthContextValue {
   updateProfile: (updates: UserProfileUpdates) => Promise<MedVerifyUser>;
   uploadAvatar: (file: UploadableFile) => Promise<MedVerifyUser>;
   deleteAccount: (password: string) => Promise<void>;
+  // Subscription & Scan Gate
+  isPro: boolean;
+  scanCount: number;
+  incrementScanCount: () => void;
+  syncScanCount: () => Promise<void>;
+  cancelSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -45,6 +54,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MedVerifyUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [scanCount, setScanCount] = useState(0);
+
+  // Pro status is server-sourced from authenticated user record
+  const isPro = Boolean(user?.isPro);
+
+  const syncScanCountWithDb = useCallback(async () => {
+    try {
+      const { stats } = await drugsService.getScanHistory({ limit: 1 });
+      if (stats && typeof stats.totalScans === 'number') {
+        setScanCount((prev) => {
+          const maxCount = Math.max(prev, stats.totalScans);
+          SecureStore.setItemAsync('medverify_scan_count', String(maxCount)).catch(() => {});
+          return maxCount;
+        });
+      }
+    } catch {
+      // Keep local storage count if network request fails
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await SecureStore.getItemAsync('medverify_scan_count');
+        if (stored) setScanCount(parseInt(stored, 10));
+      } catch {
+        // Fallback to 0 if storage fails
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (token) {
+      syncScanCountWithDb();
+    }
+  }, [token, syncScanCountWithDb]);
 
   const applySession = useCallback(async (session: AuthSession) => {
     await persistToken(session.token);
@@ -163,6 +208,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [resetSession],
   );
 
+  const incrementScanCount = useCallback(() => {
+    setScanCount((c) => {
+      const next = c + 1;
+      SecureStore.setItemAsync('medverify_scan_count', String(next)).catch(() => {});
+      return next;
+    });
+    // Reconcile with database in background
+    syncScanCountWithDb();
+  }, [syncScanCountWithDb]);
+
+  const cancelSubscription = useCallback(async () => {
+    await paymentsService.cancelSubscription();
+    await refreshProfile();
+  }, [refreshProfile]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -179,6 +239,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       uploadAvatar,
       deleteAccount,
+      isPro,
+      scanCount,
+      incrementScanCount,
+      syncScanCount: syncScanCountWithDb,
+      cancelSubscription,
     }),
     [
       user,
@@ -194,6 +259,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       uploadAvatar,
       deleteAccount,
+      isPro,
+      scanCount,
+      incrementScanCount,
+      syncScanCountWithDb,
+      cancelSubscription,
     ],
   );
 

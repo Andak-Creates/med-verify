@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import {
-  Animated,
   Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DrugVerificationResult } from '@/types/api';
 import { useLanguage } from '@/i18n';
@@ -74,19 +74,6 @@ export default function ResultScreen() {
   const status = statusConfig[verificationResult];
   const nafdacNumber = drug?.nafdacNumber ?? code;
 
-  // Entrance animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const slideAnim = useRef(new Animated.Value(40)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, damping: 14, stiffness: 130, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
   const infoRows = drug?.found
     ? [
         { label: t.result.productName, value: drug.productName },
@@ -123,10 +110,12 @@ export default function ResultScreen() {
         </View>
 
         {/* Status Badge */}
-        <Animated.View style={{
-          opacity: fadeAnim, transform: [{ scale: scaleAnim }],
-          alignItems: 'center', paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24,
-        }}>
+        <Animated.View
+          entering={ZoomIn.delay(100).springify()}
+          style={{
+            alignItems: 'center', paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24,
+          }}
+        >
           <View style={{
             width: 96, height: 96, borderRadius: 48,
             backgroundColor: status.bg, borderWidth: 3, borderColor: status.border,
@@ -151,10 +140,12 @@ export default function ResultScreen() {
         </Animated.View>
 
         {/* Drug Info Card */}
-        <Animated.View style={{
-          marginHorizontal: 20, marginBottom: 16,
-          opacity: fadeAnim, transform: [{ translateY: slideAnim }],
-        }}>
+        <Animated.View
+          entering={FadeInDown.delay(220).springify()}
+          style={{
+            marginHorizontal: 20, marginBottom: 16,
+          }}
+        >
           <View style={{
             backgroundColor: '#fff', borderRadius: 24,
             padding: 20,
@@ -181,7 +172,10 @@ export default function ResultScreen() {
         </Animated.View>
 
         {/* Action Buttons */}
-        <Animated.View style={{ paddingHorizontal: 20, gap: 12, opacity: fadeAnim }}>
+        <Animated.View
+          entering={FadeInDown.delay(320).springify()}
+          style={{ paddingHorizontal: 20, gap: 12 }}
+        >
           {/* Full Details */}
           {drug?.found && (
             <Pressable

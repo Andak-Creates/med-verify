@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import {
   ActivityIndicator,
   NativeScrollEvent,
@@ -125,7 +126,7 @@ export default function HistoryScreen() {
 
         {/* Stats Card */}
         {stats && (
-          <View style={styles.statsCard}>
+          <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsCard}>
             <View style={styles.statCol}>
               <Text style={styles.statVal}>{stats.totalScans || items.length}</Text>
               <Text style={styles.statLabel}>Total Scans</Text>
@@ -137,7 +138,7 @@ export default function HistoryScreen() {
               </Text>
               <Text style={styles.statLabel}>Authenticity Rate</Text>
             </View>
-          </View>
+          </Animated.View>
         )}
 
         {/* Search Bar */}
@@ -212,59 +213,60 @@ export default function HistoryScreen() {
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {filteredItems.map((item) => {
+            {filteredItems.map((item, index) => {
               const statusCfg = statusDisplay[item.status] || statusDisplay.not_found;
               return (
-                <Pressable
-                  key={item.id}
-                  style={({ pressed }) => [styles.itemCard, pressed && { opacity: 0.85 }]}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(user)/home/result",
-                      params: {
-                        code: item.nafdacNumber,
-                        result: JSON.stringify({
-                          nafdacNumber: item.nafdacNumber,
-                          found: item.status === "verified" || item.status === "flagged",
-                          verificationResult: item.status,
-                          productName: item.drugName,
-                          manufacturer: item.manufacturer,
-                          strength: item.strength,
-                          category: item.category,
-                        }),
-                        from: "history",
-                      },
-                    } as any)
-                  }
-                >
-                  <View style={styles.itemHeader}>
-                    <View style={styles.itemTitleBlock}>
-                      <Text style={styles.drugName} numberOfLines={1}>
-                        {item.drugName || item.nafdacNumber}
-                      </Text>
-                      {item.manufacturer ? (
-                        <Text style={styles.mfgText} numberOfLines={1}>
-                          {item.manufacturer}
+                <Animated.View key={item.id} entering={FadeInDown.delay(index * 80).springify()}>
+                  <Pressable
+                    style={({ pressed }) => [styles.itemCard, pressed && { opacity: 0.85 }]}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(user)/home/result",
+                        params: {
+                          code: item.nafdacNumber,
+                          result: JSON.stringify({
+                            nafdacNumber: item.nafdacNumber,
+                            found: item.status === "verified" || item.status === "flagged",
+                            verificationResult: item.status,
+                            productName: item.drugName,
+                            manufacturer: item.manufacturer,
+                            strength: item.strength,
+                            category: item.category,
+                          }),
+                          from: "history",
+                        },
+                      } as any)
+                    }
+                  >
+                    <View style={styles.itemHeader}>
+                      <View style={styles.itemTitleBlock}>
+                        <Text style={styles.drugName} numberOfLines={1}>
+                          {item.drugName || item.nafdacNumber}
                         </Text>
-                      ) : null}
+                        {item.manufacturer ? (
+                          <Text style={styles.mfgText} numberOfLines={1}>
+                            {item.manufacturer}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {/* Status badge */}
+                      <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+                        <Ionicons name={statusCfg.icon} size={12} color={statusCfg.color} />
+                        <Text style={[styles.statusBadgeText, { color: statusCfg.color }]}>
+                          {statusCfg.label}
+                        </Text>
+                      </View>
                     </View>
 
-                    {/* Status badge */}
-                    <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
-                      <Ionicons name={statusCfg.icon} size={12} color={statusCfg.color} />
-                      <Text style={[styles.statusBadgeText, { color: statusCfg.color }]}>
-                        {statusCfg.label}
-                      </Text>
+                    <View style={styles.itemFooter}>
+                      <View style={styles.nafdacBadge}>
+                        <Text style={styles.nafdacText}>REG: {item.nafdacNumber}</Text>
+                      </View>
+                      <Text style={styles.timeText}>{formatRelativeTime(item.scannedAt)}</Text>
                     </View>
-                  </View>
-
-                  <View style={styles.itemFooter}>
-                    <View style={styles.nafdacBadge}>
-                      <Text style={styles.nafdacText}>REG: {item.nafdacNumber}</Text>
-                    </View>
-                    <Text style={styles.timeText}>{formatRelativeTime(item.scannedAt)}</Text>
-                  </View>
-                </Pressable>
+                  </Pressable>
+                </Animated.View>
               );
             })}
 

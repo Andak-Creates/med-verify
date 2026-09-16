@@ -41,6 +41,23 @@ export interface AuthSession {
   user: MedVerifyUser;
 }
 
+export interface SavedCard {
+  authorizationCode: string;
+  last4: string;
+  cardType: string | null;
+  expMonth: string | null;
+  expYear: string | null;
+  bank: string | null;
+  reusable: boolean;
+  isSubscriptionCard: boolean;
+}
+
+export interface SessionPaymentInit {
+  authorizationUrl: string;
+  reference: string;
+  amount: number;
+}
+
 export interface UserProfileUpdates {
   fullName?: string;
   username?: string;
