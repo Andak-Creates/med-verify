@@ -19,6 +19,7 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportDrug } from '@/services/drugs.service';
+import { saveReportLocally } from '@/services/reportStorage.service';
 import { useLanguage } from '@/i18n';
 
 const BRAND = '#0B1C5A';
@@ -114,6 +115,21 @@ export default function ReportScreen() {
           reason: selectedReason,
           comments: comments.trim() || undefined,
           receiptImage: receiptImage || undefined,
+        });
+
+        await saveReportLocally({
+          id: res.reportId || `REP-${Date.now()}`,
+          referenceCode: res.referenceCode,
+          drugName: medName.trim(),
+          batchNumber: batchNo.trim(),
+          nafdacNumber: nafdacNo.trim() || undefined,
+          pharmacyName: pharmacyName.trim(),
+          pharmacyAddress: pharmacyAddress.trim() || undefined,
+          reason: selectedReason,
+          comments: comments.trim() || undefined,
+          receiptImage: receiptImage || undefined,
+          status: 'RECEIVED',
+          createdAt: res.createdAt || new Date().toISOString(),
         });
 
         router.replace({
