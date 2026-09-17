@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -19,7 +19,14 @@ import { useAuth } from "../../../context/AuthContext";
 import { useConsultations } from "@/hooks/useConsultations";
 import { useScanHistory } from "@/hooks/useDrugVerification";
 import { useSessionPayment } from "@/hooks/useSessionPayment";
+import { getLocalReports, type SavedReport } from "@/services/reportStorage.service";
 import type { Consultation, ConsultationStatus, ScanHistoryItem } from "@/types/api";
+
+const REPORT_STATUS_DISPLAY: Record<SavedReport["status"], { label: string; bg: string; color: string }> = {
+  RECEIVED: { label: "RECEIVED", bg: "#FEF3C7", color: "#92400E" },
+  UNDER_REVIEW: { label: "UNDER REVIEW", bg: "#DBEAFE", color: "#1E40AF" },
+  RESOLVED: { label: "RESOLVED", bg: "#D1FAE5", color: "#065F46" },
+};
 
 const STATUS_DISPLAY: Record<ScanHistoryItem["status"], { label: string; bg: string; color: string; icon: string; iconBg: string }> = {
   verified: { label: "AUTHENTIC", bg: "#EBF5EB", color: "#2E7D32", icon: "link", iconBg: "#EEF1FB" },
@@ -64,8 +71,21 @@ function formatConsultationDate(isoDate: string): string {
 export default function HistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"meds" | "consultations">("meds");
+  const [activeTab, setActiveTab] = useState<"meds" | "consultations" | "reports">("meds");
   const [medFilter, setMedFilter] = useState<"all" | "authentic" | "flagged">("all");
+  const [reports, setReports] = useState<SavedReport[]>([]);
+
+  const loadReports = useCallback(async () => {
+    setReports(await getLocalReports());
+  }, []);
+
+  // Reload the locally-saved Safety Reports each time History regains focus (a
+  // new report is saved on the report screen, then the user navigates back here).
+  useFocusEffect(
+    useCallback(() => {
+      loadReports();
+    }, [loadReports]),
+  );
 
   const {
     items,
@@ -99,6 +119,8 @@ export default function HistoryScreen() {
   const handleRefresh = () => {
     if (activeTab === "meds") {
       refresh();
+    } else if (activeTab === "reports") {
+      loadReports();
     } else {
       upcoming.refresh();
       past.refresh();
@@ -314,6 +336,15 @@ export default function HistoryScreen() {
                 Consultations
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.mainTab, activeTab === "reports" && styles.mainTabActive]}
+              onPress={() => { setActiveTab("reports"); loadReports(); }}
+            >
+              <Text style={[styles.mainTabText, activeTab === "reports" && styles.mainTabTextActive]}>
+                Reports
+              </Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.tabDivider} />
         </View>
@@ -481,6 +512,56 @@ export default function HistoryScreen() {
                   past.items.map(renderPastCard)
                 )}
               </>
+            )}
+          </View>
+        )}
+
+        {/* ── REPORTS TAB CONTENT ──────────────────────────────── */}
+        {activeTab === "reports" && (
+          <View style={styles.consultationsContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Safety Reports</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>
+                  {reports.length} {reports.length === 1 ? "Report" : "Reports"}
+                </Text>
+              </View>
+            </View>
+
+            {reports.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 20 }}>
+                <Ionicons name="shield-checkmark-outline" size={32} color="#9CA3AF" />
+                <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center" }}>
+                  No safety reports yet. Reports you submit from a scan result will appear here.
+                </Text>
+              </View>
+            ) : (
+              reports.map((r) => {
+                const sd = REPORT_STATUS_DISPLAY[r.status];
+                return (
+                  <View key={r.referenceCode} style={styles.reportCard}>
+                    <View style={styles.reportTop}>
+                      <View style={styles.reportIcon}>
+                        <Ionicons name="flag-outline" size={20} color="#B91C1C" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.reportDrug}>{r.drugName || "Reported medication"}</Text>
+                        <Text style={styles.reportMeta}>
+                          {r.pharmacyName || "Unknown pharmacy"} • {formatRelativeTime(r.createdAt)}
+                        </Text>
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: sd.bg }]}>
+                        <Text style={[styles.statusBadgeText, { color: sd.color }]}>{sd.label}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.reportDivider} />
+                    <View style={styles.reportFooter}>
+                      <Text style={styles.reportRef}>Ref {r.referenceCode}</Text>
+                      {!!r.batchNumber && <Text style={styles.reportBatch}>Batch {r.batchNumber}</Text>}
+                    </View>
+                  </View>
+                );
+              })
             )}
           </View>
         )}
@@ -785,4 +866,32 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipText: { fontSize: 11, color: "#4B5563", fontWeight: "600" },
+
+  /* Safety Reports */
+  reportCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  reportTop: { flexDirection: "row", alignItems: "center", gap: 12 },
+  reportIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reportDrug: { fontSize: 16, fontWeight: "800", color: "#111827", marginBottom: 3 },
+  reportMeta: { fontSize: 12, color: "#6B7280" },
+  reportDivider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 12 },
+  reportFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  reportRef: { fontSize: 12, fontWeight: "700", color: "#0B1C5A" },
+  reportBatch: { fontSize: 12, color: "#6B7280" },
 });

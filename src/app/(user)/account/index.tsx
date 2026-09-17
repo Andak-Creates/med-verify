@@ -21,6 +21,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import { getApiErrorMessage } from "@/api/client";
+import { useLanguage } from "@/i18n";
 
 // Must match the backend's VALID_BLOOD_GROUPS in users.controller.js exactly.
 const BLOOD_GROUPS = [
@@ -37,6 +38,7 @@ const BLOOD_GROUPS = [
 export default function AccountScreen() {
   const router = useRouter();
   const { user, logout, updateProfile, uploadAvatar, isPro } = useAuth();
+  const { currentLanguageOption } = useLanguage();
   const [biometricEnabled, setBiometricEnabled] = useState(true);
   const [editVisible, setEditVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -319,6 +321,19 @@ export default function AccountScreen() {
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Notification Settings</Text>
             </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(user)/account/language' as any)}>
+            <View style={styles.menuIconWrap}>
+              <Ionicons name="language-outline" size={20} color="#312E81" />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Language</Text>
+            </View>
+            <Text style={{ fontSize: 13, color: '#9CA3AF', marginRight: 6 }}>
+              {currentLanguageOption.nativeName}
+            </Text>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>

@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
+import { saveReportLocally } from '@/services/reportStorage.service';
 
 const BRAND = '#0B1C5A';
 
@@ -83,15 +84,34 @@ export default function ReportScreen() {
 
   const refId = `MV-${Math.floor(1000 + Math.random() * 9000)}-${Math.random().toString(36).substring(2, 4).toUpperCase()}`;
 
-  const handleNext = () => {
-    if (step < 3) setStep(s => s + 1);
-    else {
-      // Navigate to confirm with ref id
-      router.replace({
-        pathname: '/(user)/home/report-confirm',
-        params: { code, ref: refId },
-      } as any);
+  const handleNext = async () => {
+    if (step < 3) {
+      setStep(s => s + 1);
+      return;
     }
+    // Final submit — persist a local copy for the Safety Reports archive so the
+    // user can track it in History even though there's no server report endpoint.
+    try {
+      await saveReportLocally({
+        id: refId,
+        referenceCode: refId,
+        drugName: medName.trim(),
+        batchNumber: batchNo.trim(),
+        nafdacNumber: typeof code === 'string' ? code : undefined,
+        pharmacyName: pharmacyName.trim(),
+        pharmacyAddress: pharmacyAddress.trim() || undefined,
+        reason: 'Suspected substandard/falsified medication',
+        receiptImage: receiptImage || undefined,
+        status: 'RECEIVED',
+        createdAt: new Date().toISOString(),
+      });
+    } catch {
+      // Non-fatal — still show the confirmation.
+    }
+    router.replace({
+      pathname: '/(user)/home/report-confirm',
+      params: { code, ref: refId },
+    } as any);
   };
 
   const canNext = () => {

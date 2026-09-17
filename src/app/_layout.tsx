@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { setupAppleIap, teardownAppleIap } from "@/services/appleIap.service";
 import { CallProvider } from "../context/CallContext";
 import { SocketProvider } from "../context/SocketContext";
+import { LanguageProvider } from "../i18n";
 import * as SystemUI from "expo-system-ui";
 import { registerCallForegroundService } from "@/utils/callForegroundService";
 import "../lib/webrtcGlobals";
@@ -85,6 +86,7 @@ function NotificationTapHandler() {
 
 export default function RootLayout() {
   return (
+    <LanguageProvider>
     <AuthProvider>
       <SocketProvider>
       <CallProvider>
@@ -106,5 +108,6 @@ export default function RootLayout() {
       </CallProvider>
       </SocketProvider>
       </AuthProvider>
+    </LanguageProvider>
   );
 }
