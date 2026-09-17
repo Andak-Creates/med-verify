@@ -54,20 +54,49 @@ export default function ReportScreen() {
     t.report.reason5,
   ];
 
-  const pickImage = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(t.common.permissionDenied, t.common.grantPermission);
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      setReceiptImage(result.assets[0].uri);
-    }
+  const handleSelectPhotoOption = () => {
+    Alert.alert(
+      'Attach Evidence',
+      'Choose a photo of the store, receipt, or medicine packaging',
+      [
+        {
+          text: 'Take Photo',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert(t.common.permissionDenied, 'Camera access is required to take a photo.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              quality: 0.8,
+              allowsEditing: true,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              setReceiptImage(result.assets[0].uri);
+            }
+          },
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert(t.common.permissionDenied, t.common.grantPermission);
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              setReceiptImage(result.assets[0].uri);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   };
 
   const handleNext = async () => {
@@ -89,7 +118,18 @@ export default function ReportScreen() {
 
         router.replace({
           pathname: '/(user)/home/report-confirm',
-          params: { ref: res.referenceCode, code: nafdacNo || batchNo },
+          params: {
+            ref: res.referenceCode,
+            medName: medName.trim(),
+            batchNo: batchNo.trim(),
+            nafdacNo: nafdacNo.trim(),
+            pharmacyName: pharmacyName.trim(),
+            pharmacyAddress: pharmacyAddress.trim(),
+            reason: selectedReason,
+            comments: comments.trim(),
+            receiptImage: receiptImage || '',
+            createdAt: res.createdAt || new Date().toISOString(),
+          },
         } as any);
       } catch (err: any) {
         Alert.alert(t.common.error, err.message || 'Could not submit report.');
@@ -216,19 +256,35 @@ export default function ReportScreen() {
               />
 
               <Text style={styles.fieldLabel}>{t.report.receiptLabel}</Text>
-              <Pressable onPress={pickImage} style={styles.uploadArea}>
-                {receiptImage ? (
-                  <View style={{ alignItems: 'center' }}>
-                    <Image source={{ uri: receiptImage }} style={styles.receiptPreview} />
-                    <Text style={styles.reuploadText}>Tap to change photo</Text>
+              {receiptImage ? (
+                <View style={styles.previewCard}>
+                  <Image source={{ uri: receiptImage }} style={styles.receiptLargePreview} resizeMode="cover" />
+                  <View style={styles.previewActions}>
+                    <TouchableOpacity
+                      style={styles.changePhotoBtn}
+                      onPress={handleSelectPhotoOption}
+                    >
+                      <Ionicons name="camera-outline" size={16} color={BRAND} />
+                      <Text style={styles.changePhotoText}>Change Photo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removePhotoBtn}
+                      onPress={() => setReceiptImage(null)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                      <Text style={styles.removePhotoText}>Remove</Text>
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  <View style={{ alignItems: 'center' }}>
-                    <Ionicons name="cloud-upload-outline" size={32} color="#64748B" />
-                    <Text style={styles.uploadPrompt}>Upload Receipt / Packaging</Text>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={handleSelectPhotoOption} style={styles.uploadArea}>
+                  <View style={styles.uploadIconCircle}>
+                    <Ionicons name="camera-outline" size={26} color={BRAND} />
                   </View>
-                )}
-              </Pressable>
+                  <Text style={styles.uploadPrompt}>Take Photo or Choose Image</Text>
+                  <Text style={styles.uploadSubPrompt}>Storefront, receipt, or suspicious packaging</Text>
+                </TouchableOpacity>
+              )}
             </Animated.View>
           )}
 
@@ -311,9 +367,11 @@ export default function ReportScreen() {
               </View>
 
               {receiptImage && (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={styles.reviewLabel}>Attached Evidence:</Text>
-                  <Image source={{ uri: receiptImage }} style={[styles.receiptPreview, { marginTop: 6 }]} />
+                <View style={{ marginTop: 14 }}>
+                  <Text style={styles.reviewLabel}>Attached Evidence Photo:</Text>
+                  <View style={[styles.previewCard, { marginTop: 8 }]}>
+                    <Image source={{ uri: receiptImage }} style={styles.receiptLargePreview} resizeMode="cover" />
+                  </View>
                 </View>
               )}
             </Animated.View>
@@ -455,31 +513,85 @@ const styles = StyleSheet.create({
   },
   uploadArea: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#CBD5E1',
     borderStyle: 'dashed',
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    marginTop: 8,
+  },
+  uploadIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   uploadPrompt: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
-    marginTop: 6,
-  },
-  receiptPreview: {
-    width: 120,
-    height: 120,
-    borderRadius: 12,
-  },
-  reuploadText: {
-    fontSize: 11,
-    color: BRAND,
+    fontSize: 14,
+    color: '#334155',
     fontWeight: '700',
-    marginTop: 6,
+  },
+  uploadSubPrompt: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  previewCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  receiptLargePreview: {
+    width: '100%',
+    height: 190,
+    backgroundColor: '#F1F5F9',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#fff',
+  },
+  changePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+  },
+  changePhotoText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BRAND,
+  },
+  removePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+  },
+  removePhotoText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   reasonChip: {
     flexDirection: 'row',
